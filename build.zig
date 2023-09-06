@@ -1,39 +1,37 @@
 const std = @import("std");
 
 const examples = [_]struct { name: []const u8, source: []const u8 }{
-    .{ .name = "bench", .source = "examples/bench.zig" },
+    .{ .name = "bench", .source = "./examples/bench.zig" },
 };
-
-pub fn module(b: *std.Build) *std.Build.Module {
-    return b.addModule("parsley", .{
-        .source_file = .{ .path = sdkPath("/src/parsley.zig") },
-        .dependencies = &.{},
-    });
-}
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const parsley = module(b);
+    const parsley = b.addModule("parsley", .{
+        .source_file = std.Build.FileSource.relative("./src/parsley.zig"),
+        .dependencies = &.{},
+    });
 
     // -- examples
 
     const example_step = b.step("examples", "Build all examples");
+    b.default_step.dependOn(example_step);
 
     inline for (examples) |example| {
         const exe = b.addExecutable(.{
             .name = example.name,
-            .root_source_file = .{ .path = example.source },
+            .root_source_file = std.Build.FileSource.relative(example.source),
             .target = target,
             .optimize = optimize,
         });
         exe.addModule("parsley", parsley);
+        b.installArtifact(exe);
 
-        const instal_step = &b.addInstallArtifact(exe).step;
-        example_step.dependOn(instal_step);
+        //const instal_step = &b.addInstallArtifact(exe, .{}).step;
+        //example_step.dependOn(instal_step);
 
         const run_example_cmd = b.addRunArtifact(exe);
-        run_example_cmd.step.dependOn(instal_step);
+        //run_example_cmd.step.dependOn(instal_step);
         if (b.args) |args| {
             run_example_cmd.addArgs(args);
         }
@@ -46,19 +44,21 @@ pub fn build(b: *std.Build) void {
     // -- testing
 
     const unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = sdkPath("/src/parsley.zig") },
+        .root_source_file = std.Build.FileSource.relative("./src/parsley.zig"),
         .target = target,
-        .optimize = optimize,
     });
     const run_unit_tests = b.addRunArtifact(unit_tests);
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
-}
 
-fn sdkPath(comptime suffix: []const u8) []const u8 {
-    if (suffix[0] != '/') @compileError("suffix must be an absolute path");
-    return comptime blk: {
-        const root_dir = std.fs.path.dirname(@src().file) orelse ".";
-        break :blk root_dir ++ suffix;
-    };
+    // -- formatting
+
+    const fmt_step = b.step("fmt", "Run formatter");
+    const fmt = b.addFmt(.{
+        .paths = &.{ "src", "examples", "build.zig" },
+        .check = true,
+    });
+
+    fmt_step.dependOn(&fmt.step);
+    b.default_step.dependOn(fmt_step);
 }
