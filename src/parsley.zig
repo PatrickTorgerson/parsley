@@ -97,7 +97,7 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
             help_fns.get(command.sequence).?(writer);
             return;
         } else if (parse_fns.get(command.sequence)) |parse_fn| {
-            try parse_fn(writer, command.next, &argsIter);
+            try parse_fn(allocator, writer, command.next, &argsIter);
             return;
         } else if (next[0] == '-') {
             help_fns.get(command.sequence).?(writer);
@@ -107,7 +107,7 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
             return;
         }
     } else if (parse_fns.get(command.sequence)) |parse_fn| {
-        try parse_fn(writer, null, &argsIter);
+        try parse_fn(allocator, writer, null, &argsIter);
         return;
     } else {
         help_fns.get(command.sequence).?(writer);

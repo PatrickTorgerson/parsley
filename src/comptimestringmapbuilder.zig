@@ -1,4 +1,13 @@
+// ********************************************************************************
+//  https://github.com/PatrickTorgerson
+//  Copyright (c) 2023 Patrick Torgerson
+//  MIT license, see LICENSE for more information
+// ********************************************************************************
+
 const std = @import("std");
+
+const common = @import("common.zig");
+const EmptyComptimeStringMap = common.EmptyComptimeStringMap;
 
 /// helper type that allows programatically building the contents of
 /// a std.ComptimeStringMap at compile time.
@@ -66,7 +75,10 @@ pub fn ComptimeStringMapBuilder(comptime capacity: usize, comptime V: type) type
         }
 
         pub fn ComptimeStringMap(comptime this: *@This()) type {
-            return std.ComptimeStringMap(V, this.kvSlice());
+            return if (this.len > 0)
+                std.ComptimeStringMap(V, this.kvSlice())
+            else
+                EmptyComptimeStringMap(V);
         }
 
         pub fn find(comptime this: *@This(), comptime key: []const u8) FindResult {

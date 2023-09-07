@@ -75,13 +75,18 @@ pub const TestEndpoint3 = struct {
             .arguments = &[_]parsley.Argument{},
         },
     };
-    pub const positionals = &[_]parsley.Positional{};
+    pub const positionals = &[_]parsley.Positional{
+        .{ "values", .integer_list },
+    };
     pub fn run(
         writer: *parsley.BufferedWriter,
-        _: parsley.Positionals(positionals),
+        posis: parsley.Positionals(positionals),
         _: parsley.Options(options),
     ) anyerror!void {
-        writer.print("Goodbye Satan!", .{}) catch {};
+        writer.print("Goodbye Satan : {}\n", .{posis.values.items.len}) catch {};
+        for (posis.values.items) |value| {
+            writer.print("{}, ", .{value}) catch {};
+        }
     }
 };
 

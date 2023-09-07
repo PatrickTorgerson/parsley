@@ -90,6 +90,34 @@ pub fn Positionals(comptime positionals: []const Positional) type {
     });
 }
 
+pub fn initStructWithDefaults(comptime T: type) T {
+    const fill = comptime struct {
+        pub fn fill(value: *T) void {
+            inline for (std.meta.fields(T)) |f| {
+                @field(value, f.name) = if (f.default_value) |v|
+                    @as(*f.type, @ptrCast(v)).*
+                else
+                    defaultValue(f.type);
+            }
+        }
+        fn defaultValue(comptime V: type) V {
+            return switch (@typeInfo(V)) {
+                .Int => @intCast(0),
+                .Float => @floatCast(0.0),
+                .Bool => false,
+                .Void => {},
+                .Type => void,
+                .Optional => null,
+                .Null => null,
+                else => undefined,
+            };
+        }
+    }.fill;
+    var t: T = undefined;
+    fill(&t);
+    return t;
+}
+
 /// return a struct type with a field for every `Option` in the
 /// *options* array. Field names will use the Option's name,
 /// field types will use the result of calling `ArgumentTuple()` on
@@ -106,10 +134,10 @@ pub fn Options(comptime options: []const Option) type {
             ArgumentTuple(opt.arguments);
         fields[i] = .{
             .name = opt.name,
-            .type = @"type",
+            .type = ?@"type",
             .default_value = null,
             .is_comptime = false,
-            .alignment = if (@sizeOf(@"type") > 0) @alignOf(@"type") else 0,
+            .alignment = if (@sizeOf(?@"type") > 0) @alignOf(?@"type") else 0,
         };
     }
     return @Type(.{
@@ -137,4 +165,16 @@ pub fn ArgumentTuple(comptime arguments: []const Argument) type {
         }
         return std.meta.Tuple(&types);
     }
+}
+
+pub fn EmptyComptimeStringMap(comptime V: type) type {
+    return struct {
+        pub const kvs = &[_]V{};
+        pub fn has(_: []const u8) bool {
+            return false;
+        }
+        pub fn get(_: []const u8) ?V {
+            return null;
+        }
+    };
 }
