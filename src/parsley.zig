@@ -5,69 +5,21 @@
 // ********************************************************************************
 
 const std = @import("std");
+
 const ComptimeStringMapBuilder = @import("comptimestringmapbuilder.zig").ComptimeStringMapBuilder;
-// pub const Writer = @import("writer.zig");
 
-pub const Option = struct {
-    // required name of the option
-    /// must follow the regex `[a-zA-Z_-]+`
-    /// do not include the dash prefix
-    name: []const u8,
-    /// optional short alias
-    name_short: ?u8 = null,
-    /// a description of the option, will appear
-    /// in the command's help text
-    description: []const u8,
-    /// a list of expected argument types
-    arguments: []const Argument,
-};
+const parse = @import("parse.zig");
+const help = @import("help.zig");
+const verify = @import("verify.zig");
+const common = @import("common.zig");
 
-pub const Positional = struct {
-    /// name
-    []const u8,
-    /// argument
-    Argument,
-};
-
-/// enum of possible argument types
-pub const Argument = enum {
-    integer,
-    floating,
-    boolean,
-    string,
-    optional_integer,
-    optional_floating,
-    optional_boolean,
-    optional_string,
-    integer_list,
-    floating_list,
-    boolean_list,
-    string_list,
-
-    pub fn Type(comptime this: Argument) type {
-        return switch (this) {
-            .integer => i64,
-            .floating => f64,
-            .boolean => bool,
-            .string => []const u8,
-            .optional_integer => ?i64,
-            .optional_floating => ?f64,
-            .optional_boolean => ?bool,
-            .optional_string => ?[]const u8,
-            .integer_list => std.ArrayList(i64),
-            .floating_list => std.ArrayList(f64),
-            .boolean_list => std.ArrayList(bool),
-            .string_list => std.ArrayList([]const u8),
-        };
-    }
-};
-
-/// description information for a single command
-pub const CommandDescription = struct {
-    command_sequence: []const u8,
-    line: []const u8,
-    full: []const u8,
-};
+pub const Option = common.Option;
+pub const Positional = common.Positional;
+pub const Argument = common.Argument;
+pub const CommandDescription = common.CommandDescription;
+pub const Positionals = common.Positionals;
+pub const Options = common.Options;
+pub const ArgumentTuple = common.ArgumentTuple;
 
 /// configuration options for the library
 pub const Configuration = struct {
@@ -92,36 +44,19 @@ pub const CommandDescriptionResolution = enum {
 };
 
 /// parse the commandline, calling the specified endpoint
-pub fn parse(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []const type, comptime config: Configuration) !void {
-    comptime if (!std.meta.trait.isPtrTo(.Struct)(@TypeOf(writer))) {
-        @compileError("expected pointer to struct, found " ++ @typeName(@TypeOf(writer)));
-    };
-    const Writer = std.meta.Child(@TypeOf(writer));
-    comptime if (!std.meta.trait.hasDecls(Writer, .{
-        "write",
-        "writeAll",
-        "print",
-        "writeByte",
-        "writeByteNTimes",
-    })) {
-        @compileError("expected writer type, found " ++ @typeName(@TypeOf(writer)));
-    };
-
-    // TODO: verify no duplicate endpoints
-    // TODO: verify congig
-    // TODO: separate verification into seperate fn
-    inline for (endpoints) |e| {
-        comptime verifyEndpoint(Writer, e);
-    }
+pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []const type, comptime config: Configuration) !void {
+    const Writer = comptime verify.Writer(@TypeOf(writer));
+    comptime verify.endpoints(endpoints, Writer);
+    comptime verify.config(config);
 
     const max_commands = comptime determineMaxCommands(endpoints);
     const max_subcommands = endpoints.len;
     const subcommand_data_buffer = comptime blk: {
-        var commandCounts = CommandCounts(endpoints, max_commands, max_subcommands) catch |err| {
+        var command_counts = commandCounts(endpoints, max_commands, max_subcommands) catch |err| {
             @compileError("Could not generate command count data: " ++ @errorName(err));
         };
-        var buffer: SubcommandDataBuffer(&commandCounts) = undefined;
-        inline for (commandCounts.kvSlice()) |*kv| {
+        var buffer: SubcommandDataBuffer(&command_counts) = undefined;
+        inline for (command_counts.kvSlice()) |*kv| {
             inline for (kv[1].kvSlice(), 0..) |k, i| {
                 @field(buffer, kv[0])[i] = k[0];
             }
@@ -138,8 +73,8 @@ pub fn parse(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: 
         @compileError("could not generate full description map" ++ @errorName(err));
     };
 
-    const parse_fns = comptime ParseFnMap(Writer, endpoints);
-    const help_fns = comptime HelpFnMap(Writer, full_descs, line_descs, subcommands);
+    const parse_fns = comptime parse.FunctionMap(Writer, endpoints);
+    const help_fns = comptime help.FunctionMap(Writer, full_descs, line_descs, subcommands);
 
     var argsIter = try std.process.argsWithAllocator(allocator);
     defer argsIter.deinit();
@@ -256,160 +191,9 @@ fn DescMapImpl(
     return builder.ComptimeStringMap();
 }
 
-fn ParseFnMap(comptime Writer: type, comptime endpoints: []const type) type {
-    const ParseFn = *const fn (*Writer, ?[]const u8, *std.process.ArgIterator) anyerror!void;
-    const ParseFnKV = struct { []const u8, ParseFn };
-    var parse_fn_arr: [endpoints.len]ParseFnKV = undefined;
-    inline for (endpoints, 0..) |endpoint, i| {
-        parse_fn_arr[i][0] = endpoint.command_sequence;
-        parse_fn_arr[i][1] = generateParseFunction(Writer, ParseFn, endpoint);
-    }
-    return std.ComptimeStringMap(ParseFn, parse_fn_arr);
-}
-
-fn generateParseFunction(
-    comptime Writer: type,
-    comptime ParseFn: type,
-    comptime cmd: type,
-) ParseFn {
-    return struct {
-        pub fn parse(writer: *Writer, first_arg: ?[]const u8, args: *std.process.ArgIterator) anyerror!void {
-            _ = first_arg;
-            _ = args;
-            // TODO: parse from commandline
-            var values: Options(cmd.options) = undefined;
-            var positionals: Positionals(cmd.positionals) = undefined;
-            try cmd.run(writer, positionals, values);
-        }
-    }.parse;
-}
-
-fn HelpFnMap(
-    comptime Writer: type,
-    comptime full_descs: type,
-    comptime line_descs: type,
-    comptime subcommands: type,
-) type {
-    const HelpFn = *const fn (*Writer) void;
-    const HelpFnKV = struct { []const u8, HelpFn };
-    var help_fn_arr: [subcommands.kvs.len]HelpFnKV = undefined;
-    inline for (subcommands.kvs, 0..) |kv, i| {
-        help_fn_arr[i][0] = kv.key;
-        help_fn_arr[i][1] = generateHelpFunction(
-            Writer,
-            HelpFn,
-            kv.key,
-            full_descs,
-            line_descs,
-            subcommands,
-        );
-    }
-    return std.ComptimeStringMap(HelpFn, help_fn_arr);
-}
-
-fn generateHelpFunction(
-    comptime Writer: type,
-    comptime HelpFn: type,
-    comptime cmd_sequence: []const u8,
-    comptime full_descs: type,
-    comptime line_descs: type,
-    comptime subcommands: type,
-) HelpFn {
-    return struct {
-        pub fn help(writer: *Writer) void {
-            const description = full_descs.get(cmd_sequence) orelse "<NOP>";
-            writer.print("\n{s}\n\n", .{description}) catch {};
-
-            const commands = subcommands.get(cmd_sequence).?;
-            if (commands.len > 0) {
-                writer.writeAll("COMMANDS\n") catch {};
-                for (commands) |cmd| {
-                    const line_desc = line_descs.get(cmd) orelse "";
-                    writer.print("  {s:.<20}: {s}\n", .{ cmd[cmd_sequence.len..], line_desc }) catch {};
-                }
-            }
-            writer.writeAll("\n\n") catch {};
-
-            // TODO: options and positionals
-        }
-    }.help;
-}
-
-pub fn Positionals(comptime positionals: []const Positional) type {
-    var fields: [positionals.len]std.builtin.Type.StructField = undefined;
-    inline for (positionals, 0..) |positional, i| {
-        @setEvalBranchQuota(2_000);
-        const @"type" = positional[1].Type();
-        fields[i] = .{
-            .name = positional[0],
-            .type = @"type",
-            .default_value = null,
-            .is_comptime = false,
-            .alignment = if (@sizeOf(@"type") > 0) @alignOf(@"type") else 0,
-        };
-    }
-    return @Type(.{
-        .Struct = .{
-            .is_tuple = false,
-            .layout = .Auto,
-            .decls = &.{},
-            .fields = &fields,
-        },
-    });
-}
-
-/// return a struct type with a field for every `Option` in the
-/// *options* array. Field names will use the Option's name,
-/// field types will use the result of calling `ArgumentTuple()` on
-/// the Option's *arguments* field
-pub fn Options(comptime options: []const Option) type {
-    var fields: [options.len]std.builtin.Type.StructField = undefined;
-    inline for (options, 0..) |opt, i| {
-        @setEvalBranchQuota(2_000);
-        const @"type" = if (opt.arguments.len == 0)
-            bool
-        else if (opt.arguments.len == 1)
-            opt.arguments[0].Type()
-        else
-            ArgumentTuple(opt.arguments);
-        fields[i] = .{
-            .name = opt.name,
-            .type = @"type",
-            .default_value = null,
-            .is_comptime = false,
-            .alignment = if (@sizeOf(@"type") > 0) @alignOf(@"type") else 0,
-        };
-    }
-    return @Type(.{
-        .Struct = .{
-            .is_tuple = false,
-            .layout = .Auto,
-            .decls = &.{},
-            .fields = &fields,
-        },
-    });
-}
-
-/// return a tuple struct defined by *arguments* array
-/// return void if *arguments*.len is 0
-/// return single type if *arguments*.len is 1
-fn ArgumentTuple(comptime arguments: []const Argument) type {
-    if (arguments.len == 0)
-        return void
-    else if (arguments.len == 1)
-        return arguments[0].Type()
-    else {
-        var types: [arguments.len]type = undefined;
-        inline for (arguments, 0..) |v, i| {
-            types[i] = v.Type();
-        }
-        return std.meta.Tuple(&types);
-    }
-}
-
 /// return a std.ComptimeStringMap() mapping commands to
 /// their number of sub commands
-fn CommandCounts(
+fn commandCounts(
     comptime endpoints: []const type,
     comptime max_commands: usize,
     comptime max_subcommands: usize,
@@ -488,80 +272,6 @@ fn determineMaxCommands(comptime endpoints: []const type) usize {
         }
     }
     return max_commands;
-}
-
-/// ensure the given type meets the constraints
-/// to be an endpoint struct, emmits a compile error otherwise
-fn verifyEndpoint(comptime Writer: type, comptime endpoint: type) void {
-    comptime {
-        verifyStringDeclaration(endpoint, "command_sequence");
-        verifyStringDeclaration(endpoint, "description_line");
-        verifyStringDeclaration(endpoint, "description_full");
-        verifyArrayDeclaration(endpoint, "options", Option);
-        verifyArrayDeclaration(endpoint, "positionals", Positional);
-        // TODO: verify argument lists, list args must be lonely
-        // TODO: verify command sequence
-
-        if (!@hasDecl(endpoint, "run"))
-            @compileError("Endpoint '" ++ @typeName(endpoint) ++
-                "' missing public declaration 'run', should be 'null' or " ++
-                "'fn(parsley.Positionals(positionals),parsley.Options(options))void'")
-        else if (std.meta.trait.hasFn("run")(endpoint)) {
-            const info = @typeInfo(@TypeOf(endpoint.run));
-            if (info.Fn.return_type != anyerror!void)
-                @compileError("Endpoint '" ++ @typeName(endpoint) ++
-                    "' declaration 'run' expected return value of 'anyerror!void' found '" ++ @typeName(info.Fn.return_type orelse noreturn) ++ "'");
-            if (info.Fn.params.len != 3)
-                @compileError("Endpoint '" ++ @typeName(endpoint) ++ "' declaration 'run' expected three parameters" ++
-                    "parsley.Positionals(positionals), and parsley.Options(options)");
-            if (info.Fn.params[0].type != *Writer)
-                @compileError("Endpoint '" ++ @typeName(endpoint) ++ "' declaration 'run' expected first parameter" ++
-                    " of '" ++ @typeName(*Writer) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[0].type orelse void));
-            if (info.Fn.params[1].type != Positionals(endpoint.positionals))
-                @compileError("Endpoint '" ++ @typeName(endpoint) ++ "' declaration 'run' expected second parameter" ++
-                    " of 'parsley.Positionals(positionals)'");
-            if (info.Fn.params[2].type != Options(endpoint.options))
-                @compileError("Endpoint '" ++ @typeName(endpoint) ++ "' declaration 'run' expected third parameter" ++
-                    " of 'parsley.Options(options)'");
-        } else if (@TypeOf(endpoint.run) != @TypeOf(null))
-            @compileError("Endpoint '" ++ @typeName(endpoint) ++
-                " declaration 'run' expected 'null' or 'fn(Writer,parsley.Positionals(positionals),parsley.Options(options))void'");
-    }
-}
-
-/// emmits a compile error if the endpoint type does not contain a string declaration
-/// with the given name
-fn verifyStringDeclaration(comptime endpoint: type, comptime name: []const u8) void {
-    const string_slice: []const u8 = "";
-    if (!std.meta.trait.is(.Struct)(endpoint))
-        @compileError("Endpoint '" ++ @typeName(endpoint) ++ "' expected to be a struct type");
-    if (!@hasDecl(endpoint, name))
-        @compileError("Endpoint '" ++ @typeName(endpoint) ++
-            "' missing public declaration '" ++ name ++ ": []const u8'")
-    else if (@TypeOf(@field(endpoint, name), string_slice) != []const u8)
-        @compileError("Endpoint '" ++ @typeName(endpoint) ++
-            "' declaration '" ++ name ++ "' incorrect type '" ++
-            @typeName(@TypeOf(@field(endpoint, name))) ++ "', should be '[]const u8'");
-}
-
-/// emmits a compile error if the endpoint type does not contain a array declaration
-/// with the given name
-fn verifyArrayDeclaration(comptime endpoint: type, comptime name: []const u8, comptime child_type: type) void {
-    const child_slice: []const child_type = &.{};
-    _ = child_slice;
-    if (!std.meta.trait.is(.Struct)(endpoint))
-        @compileError("Endpoint '" ++ @typeName(endpoint) ++ "' expected to be a struct type");
-    if (!@hasDecl(endpoint, name))
-        @compileError("Endpoint '" ++ @typeName(endpoint) ++
-            "' missing public declaration '" ++ name ++ ": []const " ++ @typeName(child_type) ++ "'")
-    else if (!std.meta.trait.isPtrTo(.Array)(@TypeOf(@field(endpoint, name))))
-        @compileError("Endpoint '" ++ @typeName(endpoint) ++
-            "' incorrect type; expected '[]const " ++ @typeName(child_type) ++
-            "' but found '" ++ @typeName(@TypeOf(@field(endpoint, name))))
-    else if (std.meta.Child(std.meta.Child(@TypeOf(@field(endpoint, name)))) != child_type)
-        @compileError("Endpoint '" ++ @typeName(endpoint) ++
-            "' incorrect type; expected '[]const " ++ @typeName(child_type) ++
-            "' but found '" ++ @typeName(@TypeOf(@field(endpoint, name))));
 }
 
 test {}

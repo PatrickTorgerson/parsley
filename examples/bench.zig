@@ -9,9 +9,10 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     var allocator = gpa.allocator();
 
-    writer.writeAll("\n\n") catch {};
+    writer.writeAll("\n") catch {};
+    defer writer.writeAll("\n") catch {};
 
-    try parsley.parse(
+    try parsley.run(
         allocator,
         &writer,
         &.{
