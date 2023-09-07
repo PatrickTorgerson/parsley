@@ -43,10 +43,13 @@ pub const CommandDescriptionResolution = enum {
     emit_error,
 };
 
+pub const Writer = @TypeOf(std.io.getStdOut().writer());
+pub const BufferedWriter = std.io.BufferedWriter(4096, Writer).Writer;
+
 /// parse the commandline, calling the specified endpoint
 pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []const type, comptime config: Configuration) !void {
-    const Writer = comptime verify.Writer(@TypeOf(writer));
-    comptime verify.endpoints(endpoints, Writer);
+    const WriterType = comptime verify.Writer(@TypeOf(writer));
+    comptime verify.endpoints(endpoints, WriterType);
     comptime verify.config(config);
 
     const max_commands = comptime determineMaxCommands(endpoints);
@@ -73,8 +76,8 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
         @compileError("could not generate full description map" ++ @errorName(err));
     };
 
-    const parse_fns = comptime parse.FunctionMap(Writer, endpoints);
-    const help_fns = comptime help.FunctionMap(Writer, full_descs, line_descs, subcommands);
+    const parse_fns = comptime parse.FunctionMap(WriterType, endpoints);
+    const help_fns = comptime help.FunctionMap(WriterType, endpoints, full_descs, line_descs, subcommands);
 
     var argsIter = try std.process.argsWithAllocator(allocator);
     defer argsIter.deinit();

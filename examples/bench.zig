@@ -1,10 +1,11 @@
 const std = @import("std");
 const parsley = @import("parsley");
 
-const Writer = @TypeOf(std.io.getStdOut().writer());
-
 pub fn main() !void {
-    var writer: Writer = std.io.getStdOut().writer();
+    var buffered_writer = std.io.bufferedWriter(std.io.getStdOut().writer());
+    defer buffered_writer.flush() catch {};
+    var writer = buffered_writer.writer();
+
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     var allocator = gpa.allocator();
@@ -12,16 +13,13 @@ pub fn main() !void {
     writer.writeAll("\n") catch {};
     defer writer.writeAll("\n") catch {};
 
-    try parsley.run(
-        allocator,
-        &writer,
-        &.{
-            TestEndpoint,
-            TestEndpoint2,
-            TestEndpoint3,
-        },
-        .{ .command_descriptions = command_descriptions },
-    );
+    try parsley.run(allocator, &writer, &.{
+        TestEndpoint,
+        TestEndpoint2,
+        TestEndpoint3,
+        TestEndpoint4,
+        TestEndpoint5,
+    }, .{ .command_descriptions = command_descriptions });
 }
 
 pub const TestEndpoint = struct {
@@ -34,7 +32,7 @@ pub const TestEndpoint = struct {
         .{ "name", .string },
     };
     pub fn run(
-        writer: *Writer,
+        writer: *parsley.BufferedWriter,
         _: parsley.Positionals(positionals),
         _: parsley.Options(options),
     ) anyerror!void {
@@ -50,7 +48,7 @@ pub const TestEndpoint2 = struct {
     pub const options = &[_]parsley.Option{};
     pub const positionals = &[_]parsley.Positional{};
     pub fn run(
-        writer: *Writer,
+        writer: *parsley.BufferedWriter,
         _: parsley.Positionals(positionals),
         _: parsley.Options(options),
     ) anyerror!void {
@@ -63,14 +61,57 @@ pub const TestEndpoint3 = struct {
     pub const description_line = "Say goodbye to the lord of hell";
     pub const description_full = description_line ++
         "\nSatan will probably damn you for wasting thier time";
-    pub const options = &[_]parsley.Option{};
+    pub const options = &[_]parsley.Option{
+        .{
+            .name = "time",
+            .name_short = 't',
+            .description = "how long will you be gone",
+            .arguments = &[_]parsley.Argument{.floating},
+        },
+        .{
+            .name = "any-last-words",
+            .name_short = null,
+            .description = "you are threatining to kill them I guess",
+            .arguments = &[_]parsley.Argument{},
+        },
+    };
     pub const positionals = &[_]parsley.Positional{};
     pub fn run(
-        writer: *Writer,
+        writer: *parsley.BufferedWriter,
         _: parsley.Positionals(positionals),
         _: parsley.Options(options),
     ) anyerror!void {
         writer.print("Goodbye Satan!", .{}) catch {};
+    }
+};
+
+pub const TestEndpoint4 = struct {
+    pub const command_sequence = "goodbye satan sub1";
+    pub const description_line = "A useless subcommand";
+    pub const description_full = description_line;
+    pub const options = &[_]parsley.Option{};
+    pub const positionals = &[_]parsley.Positional{};
+    pub fn run(
+        writer: *parsley.BufferedWriter,
+        _: parsley.Positionals(positionals),
+        _: parsley.Options(options),
+    ) anyerror!void {
+        writer.print("Hello Satan! sub1", .{}) catch {};
+    }
+};
+
+pub const TestEndpoint5 = struct {
+    pub const command_sequence = "goodbye satan sub2";
+    pub const description_line = "An even more useless subcommand";
+    pub const description_full = description_line;
+    pub const options = &[_]parsley.Option{};
+    pub const positionals = &[_]parsley.Positional{};
+    pub fn run(
+        writer: *parsley.BufferedWriter,
+        _: parsley.Positionals(positionals),
+        _: parsley.Options(options),
+    ) anyerror!void {
+        writer.print("Hello Satan! sub2", .{}) catch {};
     }
 };
 
