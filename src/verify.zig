@@ -181,26 +181,29 @@ pub fn runFunction(comptime endpoint_: type, comptime writer: type) void {
     if (!@hasDecl(endpoint_, "run"))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++
             "' missing public declaration 'run', should be " ++
-            "'fn(*Writer,parsley.Positionals(positionals),parsley.Options(options))anyerror!void'")
+            "'fn(std.mem.Allocator,*Writer,parsley.Positionals(positionals),parsley.Options(options))anyerror!void'")
     else if (std.meta.trait.hasFn("run")(endpoint_)) {
         const info = @typeInfo(@TypeOf(endpoint_.run));
         if (info.Fn.return_type != anyerror!void)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++
                 "' declaration 'run' expected return value of 'anyerror!void' found '" ++ @typeName(info.Fn.return_type orelse noreturn) ++ "'");
-        if (info.Fn.params.len != 3)
-            @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected three parameters" ++
-                "parsley.Positionals(positionals), and parsley.Options(options)");
-        if (info.Fn.params[0].type != *writer)
+        if (info.Fn.params.len != 4)
+            @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected four parameters, " ++
+                "fn(std.mem.Allocator,*Writer,parsley.Positionals(positionals),parsley.Options(options))anyerror!void");
+        if (info.Fn.params[0].type != std.mem.Allocator)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected first parameter" ++
-                " of '" ++ @typeName(*writer) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[0].type orelse void));
-        if (info.Fn.params[1].type != Positionals(endpoint_))
+                " of '" ++ @typeName(std.mem.Allocator) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[0].type orelse void));
+        if (info.Fn.params[1].type != *writer)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected second parameter" ++
-                " of 'parsley.Positionals(positionals)'");
-        if (info.Fn.params[2].type != Options(endpoint_))
+                " of '" ++ @typeName(*writer) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[1].type orelse void));
+        if (info.Fn.params[2].type != Positionals(endpoint_))
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected third parameter" ++
-                " of 'parsley.Options(options)'");
+                " of 'parsley.Positionals(positionals)'" ++ " found: " ++ @typeName(info.Fn.params[2].type orelse void));
+        if (info.Fn.params[3].type != Options(endpoint_))
+            @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected fourth parameter" ++
+                " of 'parsley.Options(options)'" ++ " found: " ++ @typeName(info.Fn.params[3].type orelse void));
     } else @compileError("Endpoint '" ++ @typeName(endpoint_) ++
-        ", expected 'run', to be function 'fn(*Writer,parsley.Positionals(positionals),parsley.Options(options))anyerror!void'");
+        ", expected 'run', to be function 'fn(std.mem.Allocator,*Writer,parsley.Positionals(positionals),parsley.Options(options))anyerror!void'");
 }
 
 /// emmits a compile error if the endpoint type does not contain a string declaration

@@ -32,6 +32,7 @@ pub const TestEndpoint = struct {
         .{ "name", .string },
     };
     pub fn run(
+        _: std.mem.Allocator,
         writer: *parsley.BufferedWriter,
         _: parsley.Positionals(@This()),
         _: parsley.Options(@This()),
@@ -48,6 +49,7 @@ pub const TestEndpoint2 = struct {
     pub const options = &[_]parsley.Option{};
     pub const positionals = &[_]parsley.Positional{};
     pub fn run(
+        _: std.mem.Allocator,
         writer: *parsley.BufferedWriter,
         _: parsley.Positionals(@This()),
         _: parsley.Options(@This()),
@@ -85,6 +87,7 @@ pub const TestEndpoint3 = struct {
         .{ "values", .integer_list },
     };
     pub fn run(
+        _: std.mem.Allocator,
         writer: *parsley.BufferedWriter,
         poss: parsley.Positionals(@This()),
         opts: parsley.Options(@This()),
@@ -109,6 +112,7 @@ pub const TestEndpoint4 = struct {
     pub const options = &[_]parsley.Option{};
     pub const positionals = &[_]parsley.Positional{};
     pub fn run(
+        _: std.mem.Allocator,
         writer: *parsley.BufferedWriter,
         _: parsley.Positionals(@This()),
         _: parsley.Options(@This()),
@@ -124,6 +128,7 @@ pub const TestEndpoint5 = struct {
     pub const options = &[_]parsley.Option{};
     pub const positionals = &[_]parsley.Positional{};
     pub fn run(
+        _: std.mem.Allocator,
         writer: *parsley.BufferedWriter,
         _: parsley.Positionals(@This()),
         _: parsley.Options(@This()),

@@ -274,7 +274,8 @@ fn determineMaxCommands(comptime endpoints: []const type) usize {
                 max_commands += 1;
         }
     }
-    return max_commands;
+    // +1 to include root command
+    return max_commands + 1;
 }
 
 // fn getCommandLine(allocator: std.mem.Allocator) ![]const u8 {

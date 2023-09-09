@@ -177,7 +177,7 @@ fn generateParseFunction(
                 return;
             }
 
-            try endpoint.run(writer, positionals, options);
+            try endpoint.run(allocator, writer, positionals, options);
         }
     }.parse;
 }
@@ -272,6 +272,7 @@ fn ArrayListInitFns(comptime options: type) type {
             i += 1;
         }
     }
+    if (i == 0) return EmptyComptimeStringMap(InitFn);
     return std.ComptimeStringMap(InitFn, init_fn_arr[0..i]);
 }
 

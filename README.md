@@ -25,6 +25,7 @@ const Endpoint1 = struct {
     pub const positionals = &[_]parsley.Positional{};
 
     pub fn run(
+        allocator: std.mem.Allocator
         writer: *parsley.Writer,
         poss: parsley.Positionals(@This()),
         opts: parsley.Options(@This()),
