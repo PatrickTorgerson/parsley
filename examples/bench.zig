@@ -74,19 +74,31 @@ pub const TestEndpoint3 = struct {
             .description = "you are threatining to kill them I guess",
             .arguments = &[_]parsley.Argument{},
         },
+        .{
+            .name = "extra",
+            .name_short = 'e',
+            .description = "additional context for your farewell",
+            .arguments = &[_]parsley.Argument{.integer_list},
+        },
     };
     pub const positionals = &[_]parsley.Positional{
         .{ "values", .integer_list },
     };
     pub fn run(
         writer: *parsley.BufferedWriter,
-        posis: parsley.Positionals(positionals),
-        _: parsley.Options(options),
+        poss: parsley.Positionals(positionals),
+        opts: parsley.Options(options),
     ) anyerror!void {
-        writer.print("Goodbye Satan : {}\n", .{posis.values.items.len}) catch {};
-        for (posis.values.items) |value| {
+        writer.print("goodbye Satan\n", .{}) catch {};
+        writer.print("poss: ", .{}) catch {};
+        for (poss.values.items) |value| {
             writer.print("{}, ", .{value}) catch {};
         }
+        writer.print("\nopts: ", .{}) catch {};
+        if (opts.extra) |extra|
+            for (extra.items) |value| {
+                writer.print("{}, ", .{value}) catch {};
+            };
     }
 };
 

@@ -26,8 +26,8 @@ const Endpoint1 = struct {
 
     pub fn run(
         writer: *parsley.Writer,
-        positionals: parsley.Positionals(positionals),
-        options: parsley.Options(options),
+        poss: parsley.Positionals(positionals),
+        pots: parsley.Options(options),
     ) anyerror!void {
         // do it
     }

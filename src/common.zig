@@ -58,6 +58,44 @@ pub const Argument = enum {
             .string_list => std.ArrayList([]const u8),
         };
     }
+
+    pub fn isOptional(this: Argument) bool {
+        return switch (this) {
+            .integer,
+            .floating,
+            .boolean,
+            .string,
+            .integer_list,
+            .floating_list,
+            .boolean_list,
+            .string_list,
+            => false,
+            .optional_integer,
+            .optional_floating,
+            .optional_boolean,
+            .optional_string,
+            => true,
+        };
+    }
+
+    pub fn isList(this: Argument) bool {
+        return switch (this) {
+            .integer,
+            .floating,
+            .boolean,
+            .string,
+            .optional_integer,
+            .optional_floating,
+            .optional_boolean,
+            .optional_string,
+            => false,
+            .integer_list,
+            .floating_list,
+            .boolean_list,
+            .string_list,
+            => true,
+        };
+    }
 };
 
 /// description information for a single command
@@ -90,34 +128,6 @@ pub fn Positionals(comptime positionals: []const Positional) type {
     });
 }
 
-pub fn initStructWithDefaults(comptime T: type) T {
-    const fill = comptime struct {
-        pub fn fill(value: *T) void {
-            inline for (std.meta.fields(T)) |f| {
-                @field(value, f.name) = if (f.default_value) |v|
-                    @as(*f.type, @ptrCast(v)).*
-                else
-                    defaultValue(f.type);
-            }
-        }
-        fn defaultValue(comptime V: type) V {
-            return switch (@typeInfo(V)) {
-                .Int => @intCast(0),
-                .Float => @floatCast(0.0),
-                .Bool => false,
-                .Void => {},
-                .Type => void,
-                .Optional => null,
-                .Null => null,
-                else => undefined,
-            };
-        }
-    }.fill;
-    var t: T = undefined;
-    fill(&t);
-    return t;
-}
-
 /// return a struct type with a field for every `Option` in the
 /// *options* array. Field names will use the Option's name,
 /// field types will use the result of calling `ArgumentTuple()` on
@@ -129,15 +139,15 @@ pub fn Options(comptime options: []const Option) type {
         const @"type" = if (opt.arguments.len == 0)
             bool
         else if (opt.arguments.len == 1)
-            opt.arguments[0].Type()
+            OptionSingleValueType(opt.arguments[0])
         else
-            ArgumentTuple(opt.arguments);
+            ?ArgumentTuple(opt.arguments);
         fields[i] = .{
             .name = opt.name,
-            .type = ?@"type",
+            .type = @"type",
             .default_value = null,
             .is_comptime = false,
-            .alignment = if (@sizeOf(?@"type") > 0) @alignOf(?@"type") else 0,
+            .alignment = if (@sizeOf(@"type") > 0) @alignOf(@"type") else 0,
         };
     }
     return @Type(.{
@@ -148,6 +158,25 @@ pub fn Options(comptime options: []const Option) type {
             .fields = &fields,
         },
     });
+}
+
+fn OptionSingleValueType(comptime argument: Argument) type {
+    return switch (argument) {
+        .integer,
+        .floating,
+        .boolean,
+        .string,
+        .integer_list,
+        .floating_list,
+        .boolean_list,
+        .string_list,
+        => ?argument.Type(),
+        .optional_integer,
+        .optional_floating,
+        .optional_boolean,
+        .optional_string,
+        => struct { present: bool, value: argument.Type() },
+    };
 }
 
 /// return a tuple struct defined by *arguments* array
@@ -165,6 +194,66 @@ pub fn ArgumentTuple(comptime arguments: []const Argument) type {
         }
         return std.meta.Tuple(&types);
     }
+}
+
+/// return a value of struct type `T` with fields set to sane defaults
+/// not all types will be initialized, `undefined` is used in
+/// those cases, see implementation. default values are honored
+pub fn initStructWithDefaults(comptime T: type) T {
+    const fill = comptime struct {
+        pub fn fill(value: *T) void {
+            inline for (std.meta.fields(T)) |f| {
+                @field(value, f.name) = if (f.default_value) |v|
+                    @as(*const f.type, @ptrCast(v)).*
+                else
+                    defaultValue(f.type);
+            }
+        }
+        fn defaultValue(comptime V: type) V {
+            return switch (@typeInfo(V)) {
+                .Int => @intCast(0),
+                .Float => @floatCast(0.0),
+                .Bool => false,
+                .Void => {},
+                .Type => void,
+                .Optional => null,
+                .Null => null,
+                .Struct => blk: {
+                    if (comptime isSingleOptionalStruct(V)) {
+                        break :blk .{ .present = false, .value = null };
+                    } else break :blk undefined;
+                },
+                else => undefined,
+            };
+        }
+    }.fill;
+    var t: T = undefined;
+    fill(&t);
+    return t;
+}
+
+pub fn isSingleOptionalStruct(comptime T: type) bool {
+    return std.meta.trait.is(.Struct)(T) and
+        std.meta.fields(T).len == 2 and
+        std.meta.trait.hasFields(T, .{ "present", "value" }) and
+        std.meta.fieldInfo(T, std.enums.nameCast(std.meta.FieldEnum(T), "present")).type == bool and
+        std.meta.trait.is(.Optional)(std.meta.fieldInfo(T, std.enums.nameCast(std.meta.FieldEnum(T), "value")).type);
+}
+
+test "initStructWithDefaults()" {
+    const T = struct {
+        one: bool,
+        two: ?bool,
+        three: i32,
+        four: i8 = 69,
+        five: f16,
+    };
+    const value = initStructWithDefaults(T);
+    try std.testing.expectEqual(@as(bool, false), value.one);
+    try std.testing.expectEqual(@as(?bool, null), value.two);
+    try std.testing.expectEqual(@as(i32, 0), value.three);
+    try std.testing.expectEqual(@as(i8, 69), value.four);
+    try std.testing.expectEqual(@as(f16, 0.0), value.five);
 }
 
 pub fn EmptyComptimeStringMap(comptime V: type) type {
