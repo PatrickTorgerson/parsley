@@ -105,7 +105,9 @@ pub const CommandDescription = struct {
     full: []const u8,
 };
 
-pub fn Positionals(comptime positionals: []const Positional) type {
+pub fn Positionals(comptime endpoint: type) type {
+    const positionals = endpoint.positionals;
+    comptime @import("verify.zig").positionals(endpoint);
     var fields: [positionals.len]std.builtin.Type.StructField = undefined;
     inline for (positionals, 0..) |positional, i| {
         @setEvalBranchQuota(2_000);
@@ -132,7 +134,9 @@ pub fn Positionals(comptime positionals: []const Positional) type {
 /// *options* array. Field names will use the Option's name,
 /// field types will use the result of calling `ArgumentTuple()` on
 /// the Option's *arguments* field
-pub fn Options(comptime options: []const Option) type {
+pub fn Options(comptime endpoint: type) type {
+    const options = endpoint.options;
+    comptime @import("verify.zig").options(endpoint);
     var fields: [options.len]std.builtin.Type.StructField = undefined;
     inline for (options, 0..) |opt, i| {
         @setEvalBranchQuota(2_000);

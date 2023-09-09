@@ -34,13 +34,13 @@ fn generateParseFunction(
 ) ParseFn {
     return struct {
         pub fn parse(allocator: std.mem.Allocator, writer: *Writer, first_arg: ?[]const u8, args: *std.process.ArgIterator) anyerror!void {
-            var options = initStructWithDefaults(Options(endpoint.options));
+            var options = initStructWithDefaults(Options(endpoint));
             defer deinitOptions(@TypeOf(options), &options);
             const option_set_fns = OptionSetFns(@TypeOf(options));
             const option_ids = OptionValueIdentifiers(@TypeOf(options));
             const list_init_fns = ArrayListInitFns(@TypeOf(options));
 
-            var positionals = initStructWithDefaults(Positionals(endpoint.positionals));
+            var positionals = initStructWithDefaults(Positionals(endpoint));
             const min_positionals = minPositionals(endpoint.positionals);
             const max_positionals = maxPositionals(endpoint.positionals);
             const positional_set_fns = PositionalSetFns(@TypeOf(positionals), endpoint.positionals.len);

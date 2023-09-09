@@ -13,7 +13,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     var allocator = gpa.allocator();
 
-    try parsley.run(allocator, &writer, &.{Endpoint1}, .{});
+    try parsley.run(allocator, &writer, &.{Endpoint1, ...}, .{});
 }
 
 /// runnable commands are defined by structs called endpoints
@@ -26,8 +26,8 @@ const Endpoint1 = struct {
 
     pub fn run(
         writer: *parsley.Writer,
-        poss: parsley.Positionals(positionals),
-        pots: parsley.Options(options),
+        poss: parsley.Positionals(@This()),
+        pots: parsley.Options(@This()),
     ) anyerror!void {
         // do it
     }

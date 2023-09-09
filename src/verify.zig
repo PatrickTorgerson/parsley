@@ -6,6 +6,8 @@
 
 const std = @import("std");
 
+const ComptimeStringMapBuilder = @import("comptimestringmapbuilder.zig").ComptimeStringMapBuilder;
+
 const common = @import("common.zig");
 const Option = common.Option;
 const Positional = common.Positional;
@@ -17,8 +19,16 @@ const ArgumentTuple = common.ArgumentTuple;
 
 /// verify all endpoints are unique and valid
 pub fn endpoints(comptime endpoints_: []const type, comptime writer: type) void {
-    // TODO: verify no duplicate endpoints
+    var seqs = ComptimeStringMapBuilder(endpoints_.len, []const u8){};
     inline for (endpoints_) |e| {
+        const result = seqs.find(e.command_sequence);
+        if (result.found) {
+            const other = seqs.value_buffer[seqs.index_buffer[result.index]][1];
+            @compileError("Endpoints '" ++ other ++
+                "', and '" ++ @typeName(e) ++ "' have duplicate command_sequence '" ++ e.command_sequence ++ "'");
+        } else {
+            seqs.putFromResults(e.command_sequence, @typeName(e), result) catch {};
+        }
         comptime endpoint(e, writer);
     }
 }
@@ -60,10 +70,109 @@ pub fn endpoint(comptime endpoint_: type, comptime writer: type) void {
         arrayDeclaration(endpoint_, "options", Option);
         arrayDeclaration(endpoint_, "positionals", Positional);
         runFunction(endpoint_, writer);
-        // TODO: verify argument lists, list args must be lonely
-        // TODO: verify command sequence
-
+        positionals(endpoint_);
+        options(endpoint_);
+        commandSequence(endpoint_, endpoint_.command_sequence);
     }
+}
+
+pub fn options(comptime endpoint_: type) void {
+    if (endpoint_.options.len == 0) return;
+    var names = ComptimeStringMapBuilder(endpoint_.options.len, void){};
+    var short_names = ComptimeStringMapBuilder(endpoint_.options.len, void){};
+    inline for (endpoint_.options) |opt| {
+        var result = names.find(opt.name);
+        if (result.found)
+            @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+                "', field 'options' has duplicate name '--" ++ opt.name ++ "'")
+        else {
+            names.putFromResults(opt.name, {}, result) catch {};
+        }
+        if (opt.name_short) |short| {
+            const short_str: []const u8 = &[_]u8{short};
+            result = short_names.find(short_str);
+            if (result.found)
+                @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+                    "', field 'options' has duplicate short name '-" ++ short_str ++ "'")
+            else {
+                short_names.putFromResults(short_str, {}, result) catch {};
+            }
+        }
+        arguments(endpoint_, opt.name, opt.arguments);
+    }
+}
+
+pub fn arguments(comptime endpoint_: type, comptime opt_name: []const u8, comptime args: []const Argument) void {
+    if (args.len == 0) return;
+    var only_optionals: bool = false;
+    inline for (args) |arg| {
+        if (arg.isList() and args.len > 1)
+            @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+                "', field 'options', arguments for '--" ++ opt_name ++
+                "' has list arg that is not the only arg");
+        if (arg.isOptional()) {
+            only_optionals = true;
+        } else if (only_optionals)
+            @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+                "', field 'options', arguments for '--" ++ opt_name ++
+                "' has optionals not orderd after non-optionals");
+    }
+}
+
+pub fn positionals(comptime endpoint_: type) void {
+    if (endpoint_.positionals.len == 0) return;
+    var names = ComptimeStringMapBuilder(endpoint_.positionals.len, void){};
+    var only_optionals: bool = false;
+    inline for (endpoint_.positionals) |positional| {
+        if (positional[0].len == 0)
+            @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+                "', field 'positionals' has an element with an empty name");
+        if (positional[1].isList() and endpoint_.positionals.len > 1)
+            @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+                "', field 'positionals', list argument '" ++ positional[0] ++ "' must be the the only member");
+        if (positional[1].isOptional()) {
+            only_optionals = true;
+        } else if (only_optionals)
+            @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+                "', field 'positionals', optional argument must appear after all non-optional arguments");
+        const result = names.find(positional[0]);
+        if (result.found)
+            @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+                "', field 'positionals' has duplicate name '" ++ positional[0] ++ "'")
+        else {
+            names.putFromResults(positional[0], {}, result) catch {};
+        }
+    }
+}
+
+pub fn commandSequence(comptime endpoint_: type, comptime command_sequence: []const u8) void {
+    if (command_sequence.len == 0) return;
+    if (command_sequence[0] == ' ')
+        @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+            "', field 'command_sequence', value must not begin with a space");
+    if (command_sequence[command_sequence.len - 1] == ' ')
+        @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+            "', field 'command_sequence', value must not end with a space");
+    var prev_was_space: bool = false;
+    for (command_sequence) |char| {
+        commandSequenceChar(endpoint_, char);
+        if (char == ' ') {
+            if (prev_was_space)
+                @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+                    "', field 'command_sequence' commands must be delimited by exactly one space, no more")
+            else
+                prev_was_space = true;
+        } else prev_was_space = false;
+    }
+}
+
+pub fn commandSequenceChar(comptime endpoint_: type, comptime char: u8) void {
+    if (!(char == ' ' or
+        char == '-' or
+        char == '_' or
+        std.ascii.isAlphanumeric(char)))
+        @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+            "' field 'command_sequence' has invalid char '" ++ &[_]u8{char} ++ "'");
 }
 
 /// verify endpoint's run function has the correct signiture
@@ -71,8 +180,8 @@ pub fn endpoint(comptime endpoint_: type, comptime writer: type) void {
 pub fn runFunction(comptime endpoint_: type, comptime writer: type) void {
     if (!@hasDecl(endpoint_, "run"))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++
-            "' missing public declaration 'run', should be 'null' or " ++
-            "'fn(parsley.Positionals(positionals),parsley.Options(options))void'")
+            "' missing public declaration 'run', should be " ++
+            "'fn(*Writer,parsley.Positionals(positionals),parsley.Options(options))anyerror!void'")
     else if (std.meta.trait.hasFn("run")(endpoint_)) {
         const info = @typeInfo(@TypeOf(endpoint_.run));
         if (info.Fn.return_type != anyerror!void)
@@ -84,15 +193,14 @@ pub fn runFunction(comptime endpoint_: type, comptime writer: type) void {
         if (info.Fn.params[0].type != *writer)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected first parameter" ++
                 " of '" ++ @typeName(*writer) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[0].type orelse void));
-        if (info.Fn.params[1].type != Positionals(endpoint_.positionals))
+        if (info.Fn.params[1].type != Positionals(endpoint_))
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected second parameter" ++
                 " of 'parsley.Positionals(positionals)'");
-        if (info.Fn.params[2].type != Options(endpoint_.options))
+        if (info.Fn.params[2].type != Options(endpoint_))
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected third parameter" ++
                 " of 'parsley.Options(options)'");
-    } else if (@TypeOf(endpoint_.run) != @TypeOf(null))
-        @compileError("Endpoint '" ++ @typeName(endpoint_) ++
-            " declaration 'run' expected 'null' or 'fn(Writer,parsley.Positionals(positionals),parsley.Options(options))void'");
+    } else @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+        ", expected 'run', to be function 'fn(*Writer,parsley.Positionals(positionals),parsley.Options(options))anyerror!void'");
 }
 
 /// emmits a compile error if the endpoint type does not contain a string declaration

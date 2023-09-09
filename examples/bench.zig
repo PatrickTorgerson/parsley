@@ -33,8 +33,8 @@ pub const TestEndpoint = struct {
     };
     pub fn run(
         writer: *parsley.BufferedWriter,
-        _: parsley.Positionals(positionals),
-        _: parsley.Options(options),
+        _: parsley.Positionals(@This()),
+        _: parsley.Options(@This()),
     ) anyerror!void {
         writer.print("Hello world!", .{}) catch {};
     }
@@ -49,8 +49,8 @@ pub const TestEndpoint2 = struct {
     pub const positionals = &[_]parsley.Positional{};
     pub fn run(
         writer: *parsley.BufferedWriter,
-        _: parsley.Positionals(positionals),
-        _: parsley.Options(options),
+        _: parsley.Positionals(@This()),
+        _: parsley.Options(@This()),
     ) anyerror!void {
         writer.print("Hello Satan!", .{}) catch {};
     }
@@ -86,8 +86,8 @@ pub const TestEndpoint3 = struct {
     };
     pub fn run(
         writer: *parsley.BufferedWriter,
-        poss: parsley.Positionals(positionals),
-        opts: parsley.Options(options),
+        poss: parsley.Positionals(@This()),
+        opts: parsley.Options(@This()),
     ) anyerror!void {
         writer.print("goodbye Satan\n", .{}) catch {};
         writer.print("poss: ", .{}) catch {};
@@ -110,8 +110,8 @@ pub const TestEndpoint4 = struct {
     pub const positionals = &[_]parsley.Positional{};
     pub fn run(
         writer: *parsley.BufferedWriter,
-        _: parsley.Positionals(positionals),
-        _: parsley.Options(options),
+        _: parsley.Positionals(@This()),
+        _: parsley.Options(@This()),
     ) anyerror!void {
         writer.print("Hello Satan! sub1", .{}) catch {};
     }
@@ -125,8 +125,8 @@ pub const TestEndpoint5 = struct {
     pub const positionals = &[_]parsley.Positional{};
     pub fn run(
         writer: *parsley.BufferedWriter,
-        _: parsley.Positionals(positionals),
-        _: parsley.Options(options),
+        _: parsley.Positionals(@This()),
+        _: parsley.Options(@This()),
     ) anyerror!void {
         writer.print("Hello Satan! sub2", .{}) catch {};
     }
