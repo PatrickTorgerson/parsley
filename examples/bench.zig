@@ -14,126 +14,90 @@ pub fn main() !void {
     defer writer.writeAll("\n") catch {};
 
     try parsley.run(allocator, &writer, &.{
-        TestEndpoint,
-        TestEndpoint2,
-        TestEndpoint3,
-        TestEndpoint4,
-        TestEndpoint5,
+        Test,
     }, .{ .command_descriptions = command_descriptions });
 }
 
-pub const TestEndpoint = struct {
-    pub const command_sequence = "hello world";
-    pub const description_line = "Say hello to the home of the sapians";
-    pub const description_full = description_line ++
-        "\nI'm sure the world will be appretiative";
-    pub const options = &[_]parsley.Option{};
-    pub const positionals = &[_]parsley.Positional{
-        .{ "name", .string },
-    };
-    pub fn run(
-        _: std.mem.Allocator,
-        writer: *parsley.BufferedWriter,
-        _: parsley.Positionals(@This()),
-        _: parsley.Options(@This()),
-    ) anyerror!void {
-        writer.print("Hello world!", .{}) catch {};
-    }
-};
+pub const Test = struct {
+    pub const command_sequence = "test";
+    pub const description_line = "Command used for testing argument parsing";
+    pub const description_full = description_line;
 
-pub const TestEndpoint2 = struct {
-    pub const command_sequence = "hello satan";
-    pub const description_line = "Say hello to the lord of hell";
-    pub const description_full = description_line ++
-        "\nSatan will probably damn you for wasting thier time";
-    pub const options = &[_]parsley.Option{};
-    pub const positionals = &[_]parsley.Positional{};
-    pub fn run(
-        _: std.mem.Allocator,
-        writer: *parsley.BufferedWriter,
-        _: parsley.Positionals(@This()),
-        _: parsley.Options(@This()),
-    ) anyerror!void {
-        writer.print("Hello Satan!", .{}) catch {};
-    }
-};
-
-pub const TestEndpoint3 = struct {
-    pub const command_sequence = "goodbye satan";
-    pub const description_line = "Say goodbye to the lord of hell";
-    pub const description_full = description_line ++
-        "\nSatan will probably damn you for wasting thier time";
-    pub const options = &[_]parsley.Option{
+    pub const base_options = &[_]parsley.Option{
         .{
-            .name = "time",
-            .name_short = 't',
-            .description = "how long will you be gone",
-            .arguments = &[_]parsley.Argument{.floating},
-        },
-        .{
-            .name = "any-last-words",
-            .name_short = null,
-            .description = "you are threatining to kill them I guess",
+            .name = "boolean",
+            .name_short = 'b',
+            .description = "Accepts no value",
             .arguments = &[_]parsley.Argument{},
         },
         .{
-            .name = "extra",
-            .name_short = 'e',
-            .description = "additional context for your farewell",
+            .name = "single",
+            .name_short = 's',
+            .description = "Accepts one value",
+            .arguments = &[_]parsley.Argument{.integer},
+        },
+        .{
+            .name = "optional",
+            .name_short = 'o',
+            .description = "Accepts zero or one value",
+            .arguments = &[_]parsley.Argument{.optional_integer},
+        },
+        .{
+            .name = "list",
+            .name_short = 'l',
+            .description = "Accepts any amount of values",
             .arguments = &[_]parsley.Argument{.integer_list},
         },
+        .{
+            .name = "tuple-no-opts",
+            .name_short = 'n',
+            .description = "Accepts 4 values",
+            .arguments = &[_]parsley.Argument{ .integer, .integer, .integer, .integer },
+        },
+        .{
+            .name = "tuple-with-opts",
+            .name_short = 'w',
+            .description = "Accepts 2 to 4 values",
+            .arguments = &[_]parsley.Argument{ .integer, .integer, .optional_integer, .optional_integer },
+        },
     };
+
+    pub const options = base_options; // &buildOptions();
+
     pub const positionals = &[_]parsley.Positional{
-        .{ "values", .integer_list },
+        .{ "i", .integer },
+        .{ "f", .floating },
+        .{ "oi", .optional_integer },
     };
+
     pub fn run(
         _: std.mem.Allocator,
         writer: *parsley.BufferedWriter,
         poss: parsley.Positionals(@This()),
-        opts: parsley.Options(@This()),
+        _: parsley.Options(@This()),
     ) anyerror!void {
-        writer.print("goodbye Satan\n", .{}) catch {};
-        writer.print("poss: ", .{}) catch {};
-        for (poss.values.items) |value| {
-            writer.print("{}, ", .{value}) catch {};
-        }
-        writer.print("\nopts: ", .{}) catch {};
-        if (opts.extra) |extra|
-            for (extra.items) |value| {
-                writer.print("{}, ", .{value}) catch {};
+        try writer.print("poss: ", .{});
+        try writer.print("{}, ", .{poss.i});
+        try writer.print("{}, ", .{poss.f});
+        try writer.print("{}, ", .{poss.oi orelse -1});
+        try writer.print("\n", .{});
+    }
+
+    fn buildOptions() [base_options.len + 1000]parsley.Option {
+        @setEvalBranchQuota(5000);
+        var buffer: [base_options.len + 1000]parsley.Option = undefined;
+        for (base_options, 0..) |b, i|
+            buffer[i] = b;
+        var i: usize = base_options.len;
+        while (i < buffer.len) : (i += 1) {
+            buffer[i] = .{
+                .name = "@extra-" ++ @typeName(struct {}),
+                .name_short = null,
+                .description = "boo",
+                .arguments = &[_]parsley.Argument{},
             };
-    }
-};
-
-pub const TestEndpoint4 = struct {
-    pub const command_sequence = "goodbye satan sub1";
-    pub const description_line = "A useless subcommand";
-    pub const description_full = description_line;
-    pub const options = &[_]parsley.Option{};
-    pub const positionals = &[_]parsley.Positional{};
-    pub fn run(
-        _: std.mem.Allocator,
-        writer: *parsley.BufferedWriter,
-        _: parsley.Positionals(@This()),
-        _: parsley.Options(@This()),
-    ) anyerror!void {
-        writer.print("Hello Satan! sub1", .{}) catch {};
-    }
-};
-
-pub const TestEndpoint5 = struct {
-    pub const command_sequence = "goodbye satan sub2";
-    pub const description_line = "An even more useless subcommand";
-    pub const description_full = description_line;
-    pub const options = &[_]parsley.Option{};
-    pub const positionals = &[_]parsley.Positional{};
-    pub fn run(
-        _: std.mem.Allocator,
-        writer: *parsley.BufferedWriter,
-        _: parsley.Positionals(@This()),
-        _: parsley.Options(@This()),
-    ) anyerror!void {
-        writer.print("Hello Satan! sub2", .{}) catch {};
+        }
+        return buffer;
     }
 };
 
@@ -142,15 +106,5 @@ const command_descriptions = &[_]parsley.CommandDescription{
         .command_sequence = "",
         .line = "",
         .full = "This application serves as a space to perform ad-hoc tests of the parsley library",
-    },
-    .{
-        .command_sequence = "hello",
-        .line = "Say hello to a friend",
-        .full = "Say hello to a friend\nWe have subcommands but are not callable",
-    },
-    .{
-        .command_sequence = "goodbye",
-        .line = "Say goodbye to a friend",
-        .full = "Say goodbye to a friend\nWe have subcommands but are not callable",
     },
 };

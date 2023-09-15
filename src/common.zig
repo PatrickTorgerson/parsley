@@ -42,6 +42,23 @@ pub const Argument = enum {
     boolean_list,
     string_list,
 
+    pub fn scalar(self: Argument) @This() {
+        return switch (self) {
+            .integer => .integer,
+            .floating => .floating,
+            .boolean => .boolean,
+            .string => .string,
+            .optional_integer => .integer,
+            .optional_floating => .floating,
+            .optional_boolean => .boolean,
+            .optional_string => .string,
+            .integer_list => .integer,
+            .floating_list => .floating,
+            .boolean_list => .boolean,
+            .string_list => .string,
+        };
+    }
+
     pub fn Type(comptime this: Argument) type {
         return switch (this) {
             .integer => i64,
@@ -52,10 +69,10 @@ pub const Argument = enum {
             .optional_floating => ?f64,
             .optional_boolean => ?bool,
             .optional_string => ?[]const u8,
-            .integer_list => std.ArrayList(i64),
-            .floating_list => std.ArrayList(f64),
-            .boolean_list => std.ArrayList(bool),
-            .string_list => std.ArrayList([]const u8),
+            .integer_list => std.ArrayListUnmanaged(i64),
+            .floating_list => std.ArrayListUnmanaged(f64),
+            .boolean_list => std.ArrayListUnmanaged(bool),
+            .string_list => std.ArrayListUnmanaged([]const u8),
         };
     }
 
@@ -200,64 +217,12 @@ pub fn ArgumentTuple(comptime arguments: []const Argument) type {
     }
 }
 
-/// return a value of struct type `T` with fields set to sane defaults
-/// not all types will be initialized, `undefined` is used in
-/// those cases, see implementation. default values are honored
-pub fn initStructWithDefaults(comptime T: type) T {
-    const fill = comptime struct {
-        pub fn fill(value: *T) void {
-            inline for (std.meta.fields(T)) |f| {
-                @field(value, f.name) = if (f.default_value) |v|
-                    @as(*const f.type, @ptrCast(v)).*
-                else
-                    defaultValue(f.type);
-            }
-        }
-        fn defaultValue(comptime V: type) V {
-            return switch (@typeInfo(V)) {
-                .Int => @intCast(0),
-                .Float => @floatCast(0.0),
-                .Bool => false,
-                .Void => {},
-                .Type => void,
-                .Optional => null,
-                .Null => null,
-                .Struct => blk: {
-                    if (comptime isSingleOptionalStruct(V)) {
-                        break :blk .{ .present = false, .value = null };
-                    } else break :blk undefined;
-                },
-                else => undefined,
-            };
-        }
-    }.fill;
-    var t: T = undefined;
-    fill(&t);
-    return t;
-}
-
 pub fn isSingleOptionalStruct(comptime T: type) bool {
     return std.meta.trait.is(.Struct)(T) and
         std.meta.fields(T).len == 2 and
         std.meta.trait.hasFields(T, .{ "present", "value" }) and
         std.meta.fieldInfo(T, std.enums.nameCast(std.meta.FieldEnum(T), "present")).type == bool and
         std.meta.trait.is(.Optional)(std.meta.fieldInfo(T, std.enums.nameCast(std.meta.FieldEnum(T), "value")).type);
-}
-
-test "initStructWithDefaults()" {
-    const T = struct {
-        one: bool,
-        two: ?bool,
-        three: i32,
-        four: i8 = 69,
-        five: f16,
-    };
-    const value = initStructWithDefaults(T);
-    try std.testing.expectEqual(@as(bool, false), value.one);
-    try std.testing.expectEqual(@as(?bool, null), value.two);
-    try std.testing.expectEqual(@as(i32, 0), value.three);
-    try std.testing.expectEqual(@as(i8, 69), value.four);
-    try std.testing.expectEqual(@as(f16, 0.0), value.five);
 }
 
 pub fn EmptyComptimeStringMap(comptime V: type) type {
