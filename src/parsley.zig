@@ -85,13 +85,20 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
     const command = try parseCommandSequence(allocator, &argsIter, subcommands);
     defer allocator.free(command.sequence);
 
+    if (std.mem.eql(u8, command.sequence, "help")) {
+        try help.cmd(ctx, help_fns, allocator, writer, exename, command.next, &argsIter);
+        return;
+    }
+
     if (command.next) |next| {
         if (std.mem.eql(u8, next, "--help") or
             std.mem.eql(u8, next, "-help") or
             std.mem.eql(u8, next, "-h") or
             std.mem.eql(u8, next, "-H") or
             std.mem.eql(u8, next, "--h") or
-            std.mem.eql(u8, next, "--H"))
+            std.mem.eql(u8, next, "--H") or
+            std.mem.eql(u8, next, "-?") or
+            std.mem.eql(u8, next, "--?"))
         {
             help_fns.get(command.sequence).?(writer, exename);
             return;
@@ -173,8 +180,9 @@ fn DescMapImpl(
     comptime endpoint_field: []const u8,
     comptime command_description_field: []const u8,
 ) !type {
-    const capacity = endpoints.len + config.command_descriptions.len;
+    const capacity = endpoints.len + config.command_descriptions.len + 1;
     var builder = ComptimeStringMapBuilder(capacity, []const u8){};
+    try builder.put("help", "Show info on a specific command or topic");
     // note, endpoints and config.command_descriptions have been
     // vetted of duplicates
     for (endpoints) |endpoint| {
@@ -211,6 +219,8 @@ fn commandCounts(
         var subcounts = ComptimeStringMapBuilder(max_commands, ComptimeStringMapBuilder(max_subcommands, void)){};
         const root_idx = subcounts.find("");
         try subcounts.putFromResults("", ComptimeStringMapBuilder(max_subcommands, void){}, root_idx);
+        try subcounts.getFromResult(.{ .found = true, .index = root_idx.index }).?.put("help", {});
+        try subcounts.put("help", ComptimeStringMapBuilder(max_subcommands, void){});
 
         inline for (endpoints) |e| {
             if (e.command_sequence.len == 0)
@@ -225,7 +235,8 @@ fn commandCounts(
                 command = e.command_sequence[0..i];
 
                 // count sub command
-                try subcounts.value_buffer[subcounts.index_buffer[prev_idx]][1].put(command, {});
+                //try subcounts.value_buffer[subcounts.index_buffer[prev_idx]][1].put(command, {});
+                try subcounts.getFromResult(.{ .found = true, .index = prev_idx }).?.put(command, {});
 
                 const find_results = subcounts.find(command);
                 prev_idx = find_results.index;
@@ -280,7 +291,8 @@ fn determineMaxCommands(comptime endpoints: []const type) usize {
         }
     }
     // +1 to include root command
-    return max_commands + 1;
+    // +1 to include help command
+    return max_commands + 2;
 }
 
 // fn getCommandLine(allocator: std.mem.Allocator) ![]const u8 {

@@ -29,6 +29,17 @@ pub const Configuration = struct {
     help_option_description_fmt: []const u8 = "\n    {s}\n",
     /// format for option arguments, expects a single string placeholder
     help_option_argument_fmt: []const u8 = "{s} ",
+    /// list of help topics the topic body will be displayed
+    /// when the topic name is given to the help command
+    help_topics: []const HelpTopic = &.{},
+};
+
+/// the topic body will be displayed
+/// when the topic name is given to the help command
+pub const HelpTopic = struct {
+    name: []const u8,
+    desc: []const u8,
+    body: []const u8,
 };
 
 /// how to handle the case where a command has descriptions defined

@@ -78,8 +78,15 @@ pub fn endpoint(comptime endpoint_: type, comptime writer: type) void {
 
 pub fn options(comptime endpoint_: type) void {
     if (endpoint_.options.len == 0) return;
-    var names = ComptimeStringMapBuilder(endpoint_.options.len, void){};
-    var short_names = ComptimeStringMapBuilder(endpoint_.options.len, void){};
+    var names = ComptimeStringMapBuilder(endpoint_.options.len + 4, void){};
+    var short_names = ComptimeStringMapBuilder(endpoint_.options.len + 3, void){};
+    names.put("help", {}) catch {};
+    names.put("h", {}) catch {};
+    names.put("H", {}) catch {};
+    names.put("?", {}) catch {};
+    short_names.put("h", {}) catch {};
+    short_names.put("H", {}) catch {};
+    short_names.put("?", {}) catch {};
     inline for (endpoint_.options) |opt| {
         var result = names.find(opt.name);
         if (result.found)
@@ -90,12 +97,12 @@ pub fn options(comptime endpoint_: type) void {
         }
         if (opt.name_short) |short| {
             const short_str: []const u8 = &[_]u8{short};
-            result = short_names.find(short_str);
-            if (result.found)
+            const result_short = short_names.find(short_str);
+            if (result_short.found)
                 @compileError("Endpoint '" ++ @typeName(endpoint_) ++
                     "', field 'options' has duplicate short name '-" ++ short_str ++ "'")
             else {
-                short_names.putFromResults(short_str, {}, result) catch {};
+                short_names.putFromResults(short_str, {}, result_short) catch {};
             }
         }
         arguments(endpoint_, opt.name, opt.arguments);
@@ -153,6 +160,9 @@ pub fn commandSequence(comptime endpoint_: type, comptime command_sequence: []co
     if (command_sequence[command_sequence.len - 1] == ' ')
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++
             "', field 'command_sequence', value must not end with a space");
+    if (std.mem.eql(u8, command_sequence, "help"))
+        @compileError("Endpoint '" ++ @typeName(endpoint_) ++
+            "', field 'command_sequence' cannont equal 'help', help is a built in command");
     var prev_was_space: bool = false;
     for (command_sequence) |char| {
         commandSequenceChar(endpoint_, char);
