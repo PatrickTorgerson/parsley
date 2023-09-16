@@ -29,6 +29,12 @@ pub const Configuration = struct {
     /// in both an endpoint type and in the `command_descriptions` config
     /// field. see `parsley.CommandDescriptionResolution`
     command_description_resolution: CommandDescriptionResolution = .emit_error,
+    /// format for headers, expects a single string placeholder
+    help_header_fmt: []const u8 = "{s}\n",
+    /// format for option descriptions, expects a single string placeholder
+    help_option_description_fmt: []const u8 = "\n    {s}\n",
+    /// format for option arguments, expects a single string placeholder
+    help_option_argument_fmt: []const u8 = "{s} ",
 };
 
 /// how to handle the case where a command has descriptions defined
@@ -77,7 +83,14 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
     };
 
     const parse_fns = comptime parse.FunctionMap(WriterType, endpoints);
-    const help_fns = comptime help.FunctionMap(WriterType, endpoints, full_descs, line_descs, subcommands);
+    const help_fns = comptime help.FunctionMap(
+        WriterType,
+        endpoints,
+        full_descs,
+        line_descs,
+        subcommands,
+        config,
+    );
 
     var argsIter = try std.process.argsWithAllocator(allocator);
     defer argsIter.deinit();

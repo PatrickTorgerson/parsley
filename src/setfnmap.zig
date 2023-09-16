@@ -32,7 +32,11 @@ pub fn SetFnMap(comptime T: type) type {
     const SetFn = *const fn (std.mem.Allocator, *T, []const u8) SetFnError!void;
 
     const size = countValues(T);
-    if (size == 0) return EmptyComptimeStringMap(SetFn);
+    if (size == 0) return struct {
+        pub fn get(_: []const u8, _: usize) ?SetFn {
+            return null;
+        }
+    };
 
     const SetFnKV = struct { []const u8, SetFn };
     var set_fn_arr: [size]SetFnKV = undefined;

@@ -12,6 +12,7 @@ pub fn FunctionMap(
     comptime full_descs: type,
     comptime line_descs: type,
     comptime subcommands: type,
+    comptime config: anytype,
 ) type {
     const HelpFn = *const fn (*WriterType) void;
     const HelpFnKV = struct { []const u8, HelpFn };
@@ -26,6 +27,7 @@ pub fn FunctionMap(
             full_descs,
             line_descs,
             subcommands,
+            config,
         );
     }
     return std.ComptimeStringMap(HelpFn, help_fn_arr);
@@ -39,6 +41,7 @@ fn generateHelpFunction(
     comptime full_descs: type,
     comptime line_descs: type,
     comptime subcommands: type,
+    comptime config: anytype,
 ) HelpFn {
     return struct {
         pub fn help(writer: *WriterType) void {
@@ -49,7 +52,7 @@ fn generateHelpFunction(
 
             const commands = subcommands.get(command_sequence).?;
             if (commands.len > 0) {
-                writer.writeAll("COMMANDS\n") catch {};
+                writer.print(config.help_header_fmt, .{"COMMANDS"}) catch {};
                 for (commands) |cmd| {
                     const line_desc = line_descs.get(cmd) orelse "";
                     writer.print("  {s},  {s}\n", .{ cmd[command_sequence.len..], line_desc }) catch {};
@@ -58,16 +61,19 @@ fn generateHelpFunction(
             }
 
             if (endpoint != void and endpoint.options.len > 0) {
-                writer.writeAll("OPTIONS\n") catch {};
+                writer.print(config.help_header_fmt, .{"OPTIONS"}) catch {};
                 inline for (endpoint.options) |opt| {
                     writer.print(" --{s}", .{opt.name}) catch {};
                     if (opt.name_short) |short| {
-                        writer.print(", -{c} : ", .{short}) catch {};
-                    } else writer.writeAll("       ") catch {};
-                    inline for (opt.arguments) |arg| {
-                        writer.print("{s} ", .{@tagName(arg)}) catch {};
+                        writer.print(", -{c}", .{short}) catch {};
                     }
-                    writer.print("\n    {s}\n", .{opt.description}) catch {};
+                    if (opt.arguments.len > 0) {
+                        writer.writeAll(" : ") catch {};
+                        inline for (opt.arguments) |arg| {
+                            writer.print(config.help_option_argument_fmt, .{@tagName(arg)}) catch {};
+                        }
+                    }
+                    writer.print(config.help_option_description_fmt, .{opt.description}) catch {};
                 }
                 writer.writeAll("\n") catch {};
             }

@@ -15,7 +15,14 @@ pub fn main() !void {
 
     try parsley.run(allocator, &writer, &.{
         Test,
-    }, .{ .command_descriptions = command_descriptions });
+        Sub1,
+        Sub2,
+    }, .{
+        .command_descriptions = command_descriptions,
+        .help_header_fmt = "==== {s} ====\n\n",
+        .help_option_description_fmt = "\n    {s}\n\n",
+        .help_option_argument_fmt = "'{s}' ",
+    });
 }
 
 pub const Test = struct {
@@ -50,19 +57,19 @@ pub const Test = struct {
         },
         .{
             .name = "tuple-no-opts",
-            .name_short = 'n',
+            .name_short = null,
             .description = "Accepts 4 values",
             .arguments = &[_]parsley.Argument{ .integer, .integer, .integer, .integer },
         },
         .{
             .name = "tuple-with-opts",
-            .name_short = 'w',
+            .name_short = null,
             .description = "Accepts 2 to 4 values",
             .arguments = &[_]parsley.Argument{ .integer, .integer, .optional_integer, .optional_integer },
         },
     };
 
-    pub const options = base_options; // &buildOptions();
+    pub const options = base_options;
 
     pub const positionals = &[_]parsley.Positional{
         .{ "i", .integer },
@@ -82,23 +89,36 @@ pub const Test = struct {
         try writer.print("{}, ", .{poss.oi orelse -1});
         try writer.print("\n", .{});
     }
+};
 
-    fn buildOptions() [base_options.len + 1000]parsley.Option {
-        @setEvalBranchQuota(5000);
-        var buffer: [base_options.len + 1000]parsley.Option = undefined;
-        for (base_options, 0..) |b, i|
-            buffer[i] = b;
-        var i: usize = base_options.len;
-        while (i < buffer.len) : (i += 1) {
-            buffer[i] = .{
-                .name = "@extra-" ++ @typeName(struct {}),
-                .name_short = null,
-                .description = "boo",
-                .arguments = &[_]parsley.Argument{},
-            };
-        }
-        return buffer;
-    }
+const Sub1 = struct {
+    pub const command_sequence = "test sub1";
+    pub const description_line = "A subcommand";
+    pub const description_full = description_line;
+    pub const options = &[_]parsley.Option{};
+    pub const positionals = &[_]parsley.Positional{};
+
+    pub fn run(
+        _: std.mem.Allocator,
+        _: *parsley.BufferedWriter,
+        _: parsley.Positionals(@This()),
+        _: parsley.Options(@This()),
+    ) anyerror!void {}
+};
+
+const Sub2 = struct {
+    pub const command_sequence = "test sub2";
+    pub const description_line = "Another subcommand";
+    pub const description_full = description_line;
+    pub const options = &[_]parsley.Option{};
+    pub const positionals = &[_]parsley.Positional{};
+
+    pub fn run(
+        _: std.mem.Allocator,
+        _: *parsley.BufferedWriter,
+        _: parsley.Positionals(@This()),
+        _: parsley.Options(@This()),
+    ) anyerror!void {}
 };
 
 const command_descriptions = &[_]parsley.CommandDescription{
