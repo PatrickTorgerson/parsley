@@ -18,6 +18,7 @@ pub fn main() !void {
         Sub1,
         Sub2,
     }, .{
+        .command_description_resolution = .non_empty_prefer_endpoint,
         .command_descriptions = command_descriptions,
         .help_header_fmt = "==== {s} ====\n\n",
         .help_option_description_fmt = "\n    {s}\n\n",
@@ -121,10 +122,8 @@ const Sub2 = struct {
     ) anyerror!void {}
 };
 
-const command_descriptions = &[_]parsley.CommandDescription{
-    .{
-        .command_sequence = "",
-        .line = "",
-        .full = "This application serves as a space to perform ad-hoc tests of the parsley library",
-    },
-};
+const command_descriptions = &[_]parsley.CommandDescription{.{
+    .command_sequence = "",
+    .line = "",
+    .full = "This application serves as a space to perform ad-hoc tests of the parsley library",
+}};

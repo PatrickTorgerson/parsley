@@ -40,12 +40,14 @@ pub const Configuration = struct {
 /// how to handle the case where a command has descriptions defined
 /// in both an endpoint type and in the `command_descriptions` config
 /// field. see `parsley.Configuration`
-/// * prefer_external : use descriptions defined in config
-/// * prefer_internal : use descriptions defined in endpoint
+/// * use_config : use descriptions defined in config
+/// * use_endpoint : use descriptions defined in endpoint
 /// * emit_error : produce a compile error
 pub const CommandDescriptionResolution = enum {
-    prefer_external,
-    prefer_internal,
+    use_config,
+    use_endpoint,
+    non_empty_prefer_config,
+    non_empty_prefer_endpoint,
     emit_error,
 };
 
@@ -189,7 +191,7 @@ fn DescMapImpl(
 ) !type {
     const capacity = endpoints.len + config.command_descriptions.len;
     var builder = ComptimeStringMapBuilder(capacity, []const u8){};
-    // note endpoints and config.command_descriptions have been
+    // note, endpoints and config.command_descriptions have been
     // vetted of duplicates
     for (endpoints) |endpoint| {
         try builder.put(endpoint.command_sequence, @field(endpoint, endpoint_field));
@@ -197,9 +199,15 @@ fn DescMapImpl(
     for (config.command_descriptions) |desc| {
         const result = builder.find(desc.command_sequence);
         if (result.found) switch (config.command_description_resolution) {
-            .prefer_external => try builder.putFromResults(desc.command_sequence, @field(desc, command_description_field), result),
-            .prefer_internal => {},
-            .emit_error => @compileError("slut"),
+            .use_config => try builder.putFromResults(desc.command_sequence, @field(desc, command_description_field), result),
+            .use_endpoint => {},
+            .non_empty_prefer_config => if (@field(desc, command_description_field).len > 0) {
+                try builder.putFromResults(desc.command_sequence, @field(desc, command_description_field), result);
+            },
+            .non_empty_prefer_endpoint => if (builder.getFromResult(result).?.len == 0) {
+                try builder.putFromResults(desc.command_sequence, @field(desc, command_description_field), result);
+            },
+            .emit_error => @compileError("Endpoint '" ++ desc.command_sequence ++ "' has duplicate descriptions"),
         } else {
             try builder.putFromResults(desc.command_sequence, @field(desc, command_description_field), result);
         }

@@ -64,6 +64,13 @@ pub fn ComptimeStringMapBuilder(comptime capacity: usize, comptime V: type) type
 
         pub fn get(comptime this: *@This(), comptime key: []const u8) ?*V {
             const result = this.find(key);
+            return this.getFromResult(result);
+        }
+
+        pub fn getFromResult(
+            comptime this: *@This(),
+            comptime result: FindResult,
+        ) ?*V {
             return if (result.found)
                 &this.value_buffer[this.index_buffer[result.index]][1]
             else
