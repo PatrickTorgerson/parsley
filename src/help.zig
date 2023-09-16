@@ -6,6 +6,9 @@
 
 const std = @import("std");
 
+const common = @import("common.zig");
+const Option = common.Option;
+
 pub fn FunctionMap(
     comptime WriterType: type,
     comptime endpoints: []const type,
@@ -45,7 +48,7 @@ fn generateHelpFunction(
 ) HelpFn {
     return struct {
         pub fn help(writer: *WriterType) void {
-            const description = full_descs.get(command_sequence) orelse "<NOP>";
+            const description = full_descs.get(command_sequence) orelse "";
             writer.print("\n{s}\n\n", .{description}) catch {};
 
             // TODO: usage
@@ -63,22 +66,27 @@ fn generateHelpFunction(
             if (endpoint != void and endpoint.options.len > 0) {
                 writer.print(config.help_header_fmt, .{"OPTIONS"}) catch {};
                 inline for (endpoint.options) |opt| {
-                    writer.print(" --{s}", .{opt.name}) catch {};
-                    if (opt.name_short) |short| {
-                        writer.print(", -{c}", .{short}) catch {};
-                    }
-                    if (opt.arguments.len > 0) {
-                        writer.writeAll(" : ") catch {};
-                        inline for (opt.arguments) |arg| {
-                            writer.print(config.help_option_argument_fmt, .{@tagName(arg)}) catch {};
-                        }
-                    }
+                    writeOptionSigniture(writer, opt, config) catch {};
                     writer.print(config.help_option_description_fmt, .{opt.description}) catch {};
                 }
                 writer.writeAll("\n") catch {};
             }
         }
     }.help;
+}
+
+/// write option names and arguments
+pub fn writeOptionSigniture(writer: anytype, opt: Option, comptime config: anytype) !void {
+    writer.print(" --{s}", .{opt.name}) catch {};
+    if (opt.name_short) |short| {
+        writer.print(", -{c}", .{short}) catch {};
+    }
+    if (opt.arguments.len > 0) {
+        writer.writeAll(" : ") catch {};
+        for (opt.arguments) |arg| {
+            writer.print(config.help_option_argument_fmt, .{@tagName(arg)}) catch {};
+        }
+    }
 }
 
 fn EndpointOrVoid(comptime endpoints: []const type, comptime command_sequence: []const u8) type {

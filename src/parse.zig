@@ -7,6 +7,7 @@
 const std = @import("std");
 
 const SetFnMap = @import("setfnmap.zig").SetFnMap;
+const help = @import("help.zig");
 const common = @import("common.zig");
 const Option = common.Option;
 const Positional = common.Positional;
@@ -16,13 +17,17 @@ const Options = common.Options;
 const EmptyComptimeStringMap = common.EmptyComptimeStringMap;
 
 /// generate a std.ComptimeStringMap() mapping command sequences to parse functions
-pub fn FunctionMap(comptime Writer: type, comptime endpoints: []const type) type {
+pub fn FunctionMap(
+    comptime Writer: type,
+    comptime endpoints: []const type,
+    comptime config: anytype,
+) type {
     const ParseFn = *const fn (std.mem.Allocator, *Writer, ?[]const u8, *std.process.ArgIterator) anyerror!void;
     const ParseFnKV = struct { []const u8, ParseFn };
     var parse_fn_arr: [endpoints.len]ParseFnKV = undefined;
     inline for (endpoints, 0..) |endpoint, i| {
         parse_fn_arr[i][0] = endpoint.command_sequence;
-        parse_fn_arr[i][1] = generateParseFunction(Writer, ParseFn, endpoint);
+        parse_fn_arr[i][1] = generateParseFunction(Writer, ParseFn, endpoint, config);
     }
     return std.ComptimeStringMap(ParseFn, parse_fn_arr);
 }
@@ -32,6 +37,7 @@ fn generateParseFunction(
     comptime Writer: type,
     comptime ParseFn: type,
     comptime endpoint: type,
+    comptime config: anytype,
 ) ParseFn {
     return struct {
         pub fn parse(
@@ -102,6 +108,8 @@ fn generateParseFunction(
                                         };
                                     } else if (i < min_argumnts) {
                                         writer.print("option {s} is missing {} argument(s)\n", .{ opt, min_argumnts - i }) catch {};
+                                        help.writeOptionSigniture(writer, option, config) catch {};
+                                        writer.writeByte('\n') catch {};
                                         return;
                                     }
                                     next_arg = next_value;
@@ -110,10 +118,12 @@ fn generateParseFunction(
                                 option_set_fns.get(option.name, i).?(allocator, &options, value) catch |err| {
                                     writer.print("({s}): expected {s} for --{s} found '{s}'\n", .{
                                         @errorName(err),
-                                        @tagName(expected_arg),
+                                        @tagName(expected_arg.scalar()),
                                         option.name,
                                         value,
                                     }) catch {};
+                                    help.writeOptionSigniture(writer, option, config) catch {};
+                                    writer.writeByte('\n') catch {};
                                     return;
                                 };
                                 if (!option.arguments[0].isList()) i += 1;
@@ -126,6 +136,8 @@ fn generateParseFunction(
                                     };
                                 } else if (i < min_argumnts) {
                                     writer.print("option {s} is missing {} argument(s)\n", .{ opt, min_argumnts - i }) catch {};
+                                    help.writeOptionSigniture(writer, option, config) catch {};
+                                    writer.writeByte('\n') catch {};
                                     return;
                                 }
                                 next_arg = next_value;

@@ -84,7 +84,7 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
         @compileError("could not generate full description map" ++ @errorName(err));
     };
 
-    const parse_fns = comptime parse.FunctionMap(WriterType, endpoints);
+    const parse_fns = comptime parse.FunctionMap(WriterType, endpoints, config);
     const help_fns = comptime help.FunctionMap(
         WriterType,
         endpoints,
