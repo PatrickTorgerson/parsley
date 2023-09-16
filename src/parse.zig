@@ -9,6 +9,8 @@ const std = @import("std");
 const SetFnMap = @import("setfnmap.zig").SetFnMap;
 const help = @import("help.zig");
 const common = @import("common.zig");
+const Context = common.Context;
+const Configuration = common.Configuration;
 const Option = common.Option;
 const Positional = common.Positional;
 const Argument = common.Argument;
@@ -17,34 +19,36 @@ const Options = common.Options;
 const EmptyComptimeStringMap = common.EmptyComptimeStringMap;
 
 /// generate a std.ComptimeStringMap() mapping command sequences to parse functions
-pub fn FunctionMap(
-    comptime Writer: type,
-    comptime endpoints: []const type,
-    comptime config: anytype,
-) type {
-    const ParseFn = *const fn (std.mem.Allocator, *Writer, ?[]const u8, *std.process.ArgIterator) anyerror!void;
+pub fn FunctionMap(comptime ctx: Context) type {
+    const ParseFn = *const fn (
+        std.mem.Allocator,
+        *ctx.WriterType,
+        ?[]const u8,
+        *std.process.ArgIterator,
+        []const u8,
+    ) anyerror!void;
     const ParseFnKV = struct { []const u8, ParseFn };
-    var parse_fn_arr: [endpoints.len]ParseFnKV = undefined;
-    inline for (endpoints, 0..) |endpoint, i| {
+    var parse_fn_arr: [ctx.endpoints.len]ParseFnKV = undefined;
+    inline for (ctx.endpoints, 0..) |endpoint, i| {
         parse_fn_arr[i][0] = endpoint.command_sequence;
-        parse_fn_arr[i][1] = generateParseFunction(Writer, ParseFn, endpoint, config);
+        parse_fn_arr[i][1] = generateParseFunction(ctx, ParseFn, endpoint);
     }
     return std.ComptimeStringMap(ParseFn, parse_fn_arr);
 }
 
 /// generate a parse function for the given endpoint
 fn generateParseFunction(
-    comptime Writer: type,
+    comptime ctx: Context,
     comptime ParseFn: type,
     comptime endpoint: type,
-    comptime config: anytype,
 ) ParseFn {
     return struct {
         pub fn parse(
             allocator: std.mem.Allocator,
-            writer: *Writer,
+            writer: *ctx.WriterType,
             first_arg: ?[]const u8,
             args: *std.process.ArgIterator,
+            exename: []const u8,
         ) anyerror!void {
             var options = std.mem.zeroInit(Options(endpoint), .{});
             defer deinitOptions(@TypeOf(options), &options, allocator);
@@ -108,22 +112,21 @@ fn generateParseFunction(
                                         };
                                     } else if (i < min_argumnts) {
                                         writer.print("option {s} is missing {} argument(s)\n", .{ opt, min_argumnts - i }) catch {};
-                                        help.writeOptionSigniture(writer, option, config) catch {};
-                                        writer.writeByte('\n') catch {};
+                                        help.writeOptionSigniture(ctx, writer, option) catch {};
+                                        writer.print("\nsee '{s} {s} --help'\n", .{ exename, endpoint.command_sequence }) catch {};
                                         return;
                                     }
                                     next_arg = next_value;
                                     continue :arg_loop;
                                 }
-                                option_set_fns.get(option.name, i).?(allocator, &options, value) catch |err| {
-                                    writer.print("({s}): expected {s} for --{s} found '{s}'\n", .{
-                                        @errorName(err),
+                                option_set_fns.get(option.name, i).?(allocator, &options, value) catch {
+                                    writer.print("expected {s} for {s} found '{s}'\n", .{
                                         @tagName(expected_arg.scalar()),
-                                        option.name,
+                                        opt,
                                         value,
                                     }) catch {};
-                                    help.writeOptionSigniture(writer, option, config) catch {};
-                                    writer.writeByte('\n') catch {};
+                                    help.writeOptionSigniture(ctx, writer, option) catch {};
+                                    writer.print("\nsee '{s} {s} --help'\n", .{ exename, endpoint.command_sequence }) catch {};
                                     return;
                                 };
                                 if (!option.arguments[0].isList()) i += 1;
@@ -136,8 +139,8 @@ fn generateParseFunction(
                                     };
                                 } else if (i < min_argumnts) {
                                     writer.print("option {s} is missing {} argument(s)\n", .{ opt, min_argumnts - i }) catch {};
-                                    help.writeOptionSigniture(writer, option, config) catch {};
-                                    writer.writeByte('\n') catch {};
+                                    help.writeOptionSigniture(ctx, writer, option) catch {};
+                                    writer.print("\nsee '{s} {s} --help'\n", .{ exename, endpoint.command_sequence }) catch {};
                                     return;
                                 }
                                 next_arg = next_value;
@@ -146,6 +149,7 @@ fn generateParseFunction(
                         }
                     } else {
                         writer.print("unrecognized option '{s}'\n", .{opt}) catch {};
+                        writer.print("see '{s} {s} --help'\n", .{ exename, endpoint.command_sequence }) catch {};
                         return;
                     }
                     next_arg = args.next();
@@ -153,12 +157,16 @@ fn generateParseFunction(
                     // parse positional
                     if (endpoint.positionals.len == 0 or positional_count >= max_positionals) {
                         writer.print("unexpected positional argument '{s}'\n", .{arg}) catch {};
+                        help.writeUsage(ctx, endpoint, exename, writer) catch {};
+                        writer.print("\nsee '{s} {s} --help'\n", .{ exename, endpoint.command_sequence }) catch {};
                         return;
                     }
                     const name = endpoint.positionals[positional_count][0];
                     const arg_type = endpoint.positionals[positional_count][1];
                     positional_set_fns.get(name, 0).?(allocator, &positionals, arg) catch {
                         writer.print("expected {s} for positional {s}, found '{s}'\n", .{ @tagName(arg_type.scalar()), name, arg }) catch {};
+                        help.writeUsage(ctx, endpoint, exename, writer) catch {};
+                        writer.print("\nsee '{s} {s} --help'\n", .{ exename, endpoint.command_sequence }) catch {};
                         return;
                     };
                     if (!use_positional_list)
@@ -169,6 +177,8 @@ fn generateParseFunction(
 
             if (positional_count < min_positionals) {
                 writer.print("missing {} positional argument(s)\n", .{min_positionals - positional_count}) catch {};
+                help.writeUsage(ctx, endpoint, exename, writer) catch {};
+                writer.print("\nsee '{s} {s} --help'\n", .{ exename, endpoint.command_sequence }) catch {};
                 return;
             }
 

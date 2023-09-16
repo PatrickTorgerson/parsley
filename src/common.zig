@@ -6,6 +6,45 @@
 
 const std = @import("std");
 
+pub const Context = struct {
+    WriterType: type,
+    endpoints: []const type,
+    config: Configuration,
+    full_descs: type,
+    line_descs: type,
+    subcommands: type,
+};
+
+/// configuration options for the library
+pub const Configuration = struct {
+    /// command description data for commands with no explicit endpoint
+    command_descriptions: []const CommandDescription = &.{},
+    /// how to handle the case where a command has descriptions defined
+    /// in both an endpoint type and in the `command_descriptions` config
+    /// field. see `parsley.CommandDescriptionResolution`
+    command_description_resolution: CommandDescriptionResolution = .emit_error,
+    /// format for headers, expects a single string placeholder
+    help_header_fmt: []const u8 = "{s}\n",
+    /// format for option descriptions, expects a single string placeholder
+    help_option_description_fmt: []const u8 = "\n    {s}\n",
+    /// format for option arguments, expects a single string placeholder
+    help_option_argument_fmt: []const u8 = "{s} ",
+};
+
+/// how to handle the case where a command has descriptions defined
+/// in both an endpoint type and in the `command_descriptions` config
+/// field. see `parsley.Configuration`
+/// * use_config : use descriptions defined in config
+/// * use_endpoint : use descriptions defined in endpoint
+/// * emit_error : produce a compile error
+pub const CommandDescriptionResolution = enum {
+    use_config,
+    use_endpoint,
+    non_empty_prefer_config,
+    non_empty_prefer_endpoint,
+    emit_error,
+};
+
 pub const Option = struct {
     // required name of the option
     /// must follow the regex `[a-zA-Z_-]+`

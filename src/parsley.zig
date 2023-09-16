@@ -20,22 +20,10 @@ pub const CommandDescription = common.CommandDescription;
 pub const Positionals = common.Positionals;
 pub const Options = common.Options;
 pub const ArgumentTuple = common.ArgumentTuple;
+pub const Context = common.Context;
 
 /// configuration options for the library
-pub const Configuration = struct {
-    /// command description data for commands with no explicit endpoint
-    command_descriptions: []const CommandDescription = &.{},
-    /// how to handle the case where a command has descriptions defined
-    /// in both an endpoint type and in the `command_descriptions` config
-    /// field. see `parsley.CommandDescriptionResolution`
-    command_description_resolution: CommandDescriptionResolution = .emit_error,
-    /// format for headers, expects a single string placeholder
-    help_header_fmt: []const u8 = "{s}\n",
-    /// format for option descriptions, expects a single string placeholder
-    help_option_description_fmt: []const u8 = "\n    {s}\n",
-    /// format for option arguments, expects a single string placeholder
-    help_option_argument_fmt: []const u8 = "{s} ",
-};
+pub const Configuration = common.Configuration;
 
 /// how to handle the case where a command has descriptions defined
 /// in both an endpoint type and in the `command_descriptions` config
@@ -43,13 +31,7 @@ pub const Configuration = struct {
 /// * use_config : use descriptions defined in config
 /// * use_endpoint : use descriptions defined in endpoint
 /// * emit_error : produce a compile error
-pub const CommandDescriptionResolution = enum {
-    use_config,
-    use_endpoint,
-    non_empty_prefer_config,
-    non_empty_prefer_endpoint,
-    emit_error,
-};
+pub const CommandDescriptionResolution = common.CommandDescription;
 
 pub const Writer = @TypeOf(std.io.getStdOut().writer());
 pub const BufferedWriter = std.io.BufferedWriter(4096, Writer).Writer;
@@ -84,19 +66,21 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
         @compileError("could not generate full description map" ++ @errorName(err));
     };
 
-    const parse_fns = comptime parse.FunctionMap(WriterType, endpoints, config);
-    const help_fns = comptime help.FunctionMap(
-        WriterType,
-        endpoints,
-        full_descs,
-        line_descs,
-        subcommands,
-        config,
-    );
+    const ctx: Context = .{
+        .WriterType = WriterType,
+        .endpoints = endpoints,
+        .config = config,
+        .full_descs = full_descs,
+        .line_descs = line_descs,
+        .subcommands = subcommands,
+    };
 
     var argsIter = try std.process.argsWithAllocator(allocator);
     defer argsIter.deinit();
-    _ = argsIter.next(); // executable path
+    const exename = std.fs.path.stem(argsIter.next().?); // executable path
+
+    const parse_fns = comptime parse.FunctionMap(ctx);
+    const help_fns = comptime help.FunctionMap(ctx);
 
     const command = try parseCommandSequence(allocator, &argsIter, subcommands);
     defer allocator.free(command.sequence);
@@ -109,23 +93,23 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
             std.mem.eql(u8, next, "--h") or
             std.mem.eql(u8, next, "--H"))
         {
-            help_fns.get(command.sequence).?(writer);
+            help_fns.get(command.sequence).?(writer, exename);
             return;
         } else if (parse_fns.get(command.sequence)) |parse_fn| {
-            try parse_fn(allocator, writer, command.next, &argsIter);
+            try parse_fn(allocator, writer, command.next, &argsIter, exename);
             return;
         } else if (next[0] == '-') {
-            help_fns.get(command.sequence).?(writer);
+            help_fns.get(command.sequence).?(writer, exename);
             return;
         } else {
             writer.print("\n'{s}' is not a subcommand of '{s}'\n\n", .{ next, command.sequence }) catch {};
             return;
         }
     } else if (parse_fns.get(command.sequence)) |parse_fn| {
-        try parse_fn(allocator, writer, null, &argsIter);
+        try parse_fn(allocator, writer, null, &argsIter, exename);
         return;
     } else {
-        help_fns.get(command.sequence).?(writer);
+        help_fns.get(command.sequence).?(writer, exename);
         return;
     }
 }
