@@ -43,7 +43,7 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
     comptime verify.config(config);
 
     const max_commands = comptime determineMaxCommands(endpoints);
-    const max_subcommands = endpoints.len;
+    const max_subcommands = endpoints.len + 1;
     const subcommand_data_buffer = comptime blk: {
         var command_counts = commandCounts(endpoints, max_commands, max_subcommands) catch |err| {
             @compileError("Could not generate command count data: " ++ @errorName(err));

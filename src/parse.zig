@@ -60,7 +60,7 @@ fn generateParseFunction(
             const max_positionals = maxPositionals(endpoint.positionals);
             const positional_set_fns = SetFnMap(@TypeOf(positionals));
 
-            const use_positional_list = endpoint.positionals.len == 1 and endpoint.positionals[0][1].isList();
+            const use_positional_list = comptime endpoint.positionals.len == 1 and endpoint.positionals[0][1].isList();
             defer if (use_positional_list) {
                 @field(positionals, endpoint.positionals[0][0]).deinit(allocator);
             };
