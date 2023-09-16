@@ -112,6 +112,7 @@ pub fn cmd(
 
     if (ctx.subcommands.has(argbuf.items)) {
         help_fns.get(argbuf.items).?(writer, exename);
+        return;
     } else {
         inline for (ctx.config.help_topics) |topic| {
             if (std.mem.eql(u8, topic.name, argbuf.items)) {
