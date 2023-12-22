@@ -1,3 +1,9 @@
+// ********************************************************************************
+//  https://github.com/PatrickTorgerson
+//  Copyright (c) 2024 Patrick Torgerson
+//  MIT license, see LICENSE for more information
+// ********************************************************************************
+
 const std = @import("std");
 const parsley = @import("parsley");
 
@@ -8,7 +14,7 @@ pub fn main() !void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
 
     writer.writeAll("\n") catch {};
     defer writer.writeAll("\n") catch {};

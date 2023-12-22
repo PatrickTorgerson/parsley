@@ -1,10 +1,11 @@
 // ********************************************************************************
 //  https://github.com/PatrickTorgerson
-//  Copyright (c) 2023 Patrick Torgerson
+//  Copyright (c) 2024 Patrick Torgerson
 //  MIT license, see LICENSE for more information
 // ********************************************************************************
 
 const std = @import("std");
+const trait = @import("trait.zig");
 
 const SetFnMap = @import("setfnmap.zig").SetFnMap;
 const help = @import("help.zig");
@@ -222,7 +223,7 @@ fn InitFns(comptime T: type) type {
                 }
             }.init;
             i += 1;
-        } else if (comptime std.meta.trait.is(.Optional)(field.type) and std.meta.trait.isTuple(std.meta.Child(field.type))) {
+        } else if (comptime trait.is(.Optional)(field.type) and trait.isTuple(std.meta.Child(field.type))) {
             init_fn_arr[i][0] = field.name;
             init_fn_arr[i][1] = struct {
                 pub fn init(opts: *T) void {
@@ -250,10 +251,10 @@ fn deinitOptions(comptime OptionsType: type, options: *OptionsType, ally: std.me
 
 /// determine if `T` is an optional array list
 fn isOptionalArrayList(comptime T: type) bool {
-    return std.meta.trait.is(.Optional)(T) and
-        std.meta.trait.is(.Struct)(std.meta.Child(T)) and
-        std.meta.trait.hasFields(std.meta.Child(T), .{ "items", "capacity" }) and
-        std.meta.trait.hasFunctions(std.meta.Child(T), .{ "initCapacity", "deinit", "append" });
+    return trait.is(.Optional)(T) and
+        trait.is(.Struct)(std.meta.Child(T)) and
+        trait.hasFields(std.meta.Child(T), .{ "items", "capacity" }) and
+        trait.hasFunctions(std.meta.Child(T), .{ "initCapacity", "deinit", "append" });
 }
 
 /// determine the maximum number of positionals that could be specified

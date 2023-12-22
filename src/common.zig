@@ -1,10 +1,11 @@
 // ********************************************************************************
 //  https://github.com/PatrickTorgerson
-//  Copyright (c) 2023 Patrick Torgerson
+//  Copyright (c) 2024 Patrick Torgerson
 //  MIT license, see LICENSE for more information
 // ********************************************************************************
 
 const std = @import("std");
+const trait = @import("trait.zig");
 
 pub const Context = struct {
     WriterType: type,
@@ -268,11 +269,11 @@ pub fn ArgumentTuple(comptime arguments: []const Argument) type {
 }
 
 pub fn isSingleOptionalStruct(comptime T: type) bool {
-    return std.meta.trait.is(.Struct)(T) and
+    return trait.is(.Struct)(T) and
         std.meta.fields(T).len == 2 and
-        std.meta.trait.hasFields(T, .{ "present", "value" }) and
+        trait.hasFields(T, .{ "present", "value" }) and
         std.meta.fieldInfo(T, std.enums.nameCast(std.meta.FieldEnum(T), "present")).type == bool and
-        std.meta.trait.is(.Optional)(std.meta.fieldInfo(T, std.enums.nameCast(std.meta.FieldEnum(T), "value")).type);
+        trait.is(.Optional)(std.meta.fieldInfo(T, std.enums.nameCast(std.meta.FieldEnum(T), "value")).type);
 }
 
 pub fn EmptyComptimeStringMap(comptime V: type) type {

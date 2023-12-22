@@ -1,6 +1,6 @@
 // ********************************************************************************
 //  https://github.com/PatrickTorgerson
-//  Copyright (c) 2023 Patrick Torgerson
+//  Copyright (c) 2024 Patrick Torgerson
 //  MIT license, see LICENSE for more information
 // ********************************************************************************
 
@@ -8,6 +8,7 @@ const std = @import("std");
 
 const ComptimeStringMapBuilder = @import("comptimestringmapbuilder.zig").ComptimeStringMapBuilder;
 
+const trait = @import("trait.zig");
 const common = @import("common.zig");
 const Option = common.Option;
 const Positional = common.Positional;
@@ -43,11 +44,11 @@ pub fn config(comptime config_: anytype) void {
 /// return the writer type
 pub fn Writer(comptime writer: type) type {
     comptime {
-        if (!std.meta.trait.isPtrTo(.Struct)(writer)) {
+        if (!trait.isPtrTo(.Struct)(writer)) {
             @compileError("expected pointer to struct, found " ++ @typeName(writer));
         }
         const WriterTy = std.meta.Child(writer);
-        if (!std.meta.trait.hasDecls(WriterTy, .{
+        if (!trait.hasDecls(WriterTy, .{
             "write",
             "writeAll",
             "print",
@@ -88,7 +89,7 @@ pub fn options(comptime endpoint_: type) void {
     short_names.put("H", {}) catch {};
     short_names.put("?", {}) catch {};
     inline for (endpoint_.options) |opt| {
-        var result = names.find(opt.name);
+        const result = names.find(opt.name);
         if (result.found)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++
                 "', field 'options' has duplicate name '--" ++ opt.name ++ "'")
@@ -192,7 +193,7 @@ pub fn runFunction(comptime endpoint_: type, comptime writer: type) void {
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++
             "' missing public declaration 'run', should be " ++
             "'fn(std.mem.Allocator,*Writer,parsley.Positionals(positionals),parsley.Options(options))anyerror!void'")
-    else if (std.meta.trait.hasFn("run")(endpoint_)) {
+    else if (trait.hasFn("run")(endpoint_)) {
         const info = @typeInfo(@TypeOf(endpoint_.run));
         if (info.Fn.return_type != anyerror!void)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++
@@ -220,7 +221,7 @@ pub fn runFunction(comptime endpoint_: type, comptime writer: type) void {
 /// with the given name
 pub fn stringDeclaration(comptime endpoint_: type, comptime name: []const u8) void {
     const string_slice: []const u8 = "";
-    if (!std.meta.trait.is(.Struct)(endpoint_))
+    if (!trait.is(.Struct)(endpoint_))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' expected to be a struct type");
     if (!@hasDecl(endpoint_, name))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++
@@ -236,12 +237,12 @@ pub fn stringDeclaration(comptime endpoint_: type, comptime name: []const u8) vo
 pub fn arrayDeclaration(comptime endpoint_: type, comptime name: []const u8, comptime child_type: type) void {
     const child_slice: []const child_type = &.{};
     _ = child_slice;
-    if (!std.meta.trait.is(.Struct)(endpoint_))
+    if (!trait.is(.Struct)(endpoint_))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' expected to be a struct type");
     if (!@hasDecl(endpoint_, name))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++
             "' missing public declaration '" ++ name ++ ": []const " ++ @typeName(child_type) ++ "'")
-    else if (!std.meta.trait.isPtrTo(.Array)(@TypeOf(@field(endpoint_, name))))
+    else if (!trait.isPtrTo(.Array)(@TypeOf(@field(endpoint_, name))))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++
             "' incorrect type; expected '[]const " ++ @typeName(child_type) ++
             "' but found '" ++ @typeName(@TypeOf(@field(endpoint_, name))))

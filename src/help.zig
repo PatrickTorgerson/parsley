@@ -1,6 +1,6 @@
 // ********************************************************************************
 //  https://github.com/PatrickTorgerson
-//  Copyright (c) 2023 Patrick Torgerson
+//  Copyright (c) 2024 Patrick Torgerson
 //  MIT license, see LICENSE for more information
 // ********************************************************************************
 

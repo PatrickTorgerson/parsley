@@ -1,6 +1,6 @@
 // ********************************************************************************
 //  https://github.com/PatrickTorgerson
-//  Copyright (c) 2023 Patrick Torgerson
+//  Copyright (c) 2024 Patrick Torgerson
 //  MIT license, see LICENSE for more information
 // ********************************************************************************
 
@@ -280,7 +280,6 @@ fn SubcommandDataBuffer(comptime command_counts: anytype) type {
     });
 }
 
-///
 fn determineMaxCommands(comptime endpoints: []const type) usize {
     var max_commands = 0;
     inline for (endpoints) |endpoint| {
@@ -295,47 +294,6 @@ fn determineMaxCommands(comptime endpoints: []const type) usize {
     return max_commands + 2;
 }
 
-// fn getCommandLine(allocator: std.mem.Allocator) ![]const u8 {
-//     const builtin = @import("builtin");
-//     if (builtin.os.tag == .windows) {
-//         const cmd_line_w = std.os.windows.kernel32.GetCommandLineW();
-//         var utf16le_slice = std.mem.sliceTo(cmd_line_w, 0);
-//         var cmd_line = std.unicode.utf16leToUtf8Alloc(allocator, utf16le_slice) catch |err| switch (err) {
-//             error.ExpectedSecondSurrogateHalf,
-//             error.DanglingSurrogateHalf,
-//             error.UnexpectedSecondSurrogateHalf,
-//             => return error.InvalidCmdLine,
-//             error.OutOfMemory => return error.OutOfMemory,
-//         };
-//         return cmd_line;
-//     } else if (builtin.os.tag == .wasi and !builtin.link_libc) {
-//         const w = std.os.wasi;
-//         var count: usize = undefined;
-//         var buf_size: usize = undefined;
-//         switch (w.args_sizes_get(&count, &buf_size)) {
-//             .SUCCESS => {},
-//             else => |err| return std.os.unexpectedErrno(err),
-//         }
-//
-//         if (count == 0) {
-//             return &[_]u8{};
-//         }
-//
-//         var argv = try allocator.alloc([*:0]u8, count);
-//         defer allocator.free(argv);
-//
-//         var argv_buf = try allocator.alloc(u8, buf_size);
-//
-//         switch (w.args_get(argv.ptr, argv_buf.ptr)) {
-//             .SUCCESS => {},
-//             else => |err| return std.os.unexpectedErrno(err),
-//         }
-//
-//         return argv_buf;
-//     } else {
-//         var argv: [][*:0]u8 = std.os.argv;
-//         _ = argv;
-//     }
-// }
-
-test {}
+test {
+    std.testing.refAllDecls(@This());
+}
