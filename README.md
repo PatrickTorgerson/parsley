@@ -13,7 +13,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     var allocator = gpa.allocator();
 
-    try parsley.run(allocator, &writer, &.{Endpoint1}, .{.command_descriptions = command_descriptions});
+    try parsley.executeCommandLine(allocator, &writer, &.{Endpoint1}, .{.command_descriptions = command_descriptions});
 }
 
 /// runnable commands are defined by structs called endpoints
