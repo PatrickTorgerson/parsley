@@ -8,6 +8,7 @@ const std = @import("std");
 
 const examples = [_]struct { name: []const u8, source: []const u8 }{
     .{ .name = "bench", .source = "./examples/bench.zig" },
+    .{ .name = "repl", .source = "./examples/repl.zig" },
 };
 
 pub fn build(b: *std.Build) void {

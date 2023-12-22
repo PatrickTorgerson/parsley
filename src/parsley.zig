@@ -22,6 +22,8 @@ pub const Options = common.Options;
 pub const ArgumentTuple = common.ArgumentTuple;
 pub const Context = common.Context;
 
+pub const ArgIterator = @import("any_iterator.zig").AnyIterator([]const u8);
+
 /// configuration options for the library
 pub const Configuration = common.Configuration;
 
@@ -37,7 +39,39 @@ pub const Writer = @TypeOf(std.io.getStdOut().writer());
 pub const BufferedWriter = std.io.BufferedWriter(4096, Writer).Writer;
 
 /// parse the commandline, calling the specified endpoint
-pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []const type, comptime config: Configuration) !void {
+pub fn executeCommandLine(
+    allocator: std.mem.Allocator,
+    writer: anytype,
+    comptime endpoints: []const type,
+    comptime config: Configuration,
+) !void {
+    var argsIter = try std.process.argsWithAllocator(allocator);
+    defer argsIter.deinit();
+    const exename = std.fs.path.stem(argsIter.next().?);
+    return runImpl(allocator, writer, endpoints, config, exename, ArgIterator.init(&argsIter));
+}
+
+/// parse string as a commandline, calling the specified endpoint
+pub fn executeString(
+    string: []const u8,
+    allocator: std.mem.Allocator,
+    writer: anytype,
+    comptime endpoints: []const type,
+    comptime config: Configuration,
+) !void {
+    var argsIter = try std.process.ArgIteratorGeneral(.{}).init(allocator, string);
+    defer argsIter.deinit();
+    return runImpl(allocator, writer, endpoints, config, "", ArgIterator.init(&argsIter));
+}
+
+fn runImpl(
+    allocator: std.mem.Allocator,
+    writer: anytype,
+    comptime endpoints: []const type,
+    comptime config: Configuration,
+    exename: []const u8,
+    argsIter: ArgIterator,
+) !void {
     const WriterType = comptime verify.Writer(@TypeOf(writer));
     comptime verify.endpoints(endpoints, WriterType);
     comptime verify.config(config);
@@ -75,18 +109,14 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
         .subcommands = subcommands,
     };
 
-    var argsIter = try std.process.argsWithAllocator(allocator);
-    defer argsIter.deinit();
-    const exename = std.fs.path.stem(argsIter.next().?); // executable path
-
     const parse_fns = comptime parse.FunctionMap(ctx);
     const help_fns = comptime help.FunctionMap(ctx);
 
-    const command = try parseCommandSequence(allocator, &argsIter, subcommands);
+    const command = try parseCommandSequence(allocator, argsIter, subcommands);
     defer allocator.free(command.sequence);
 
     if (std.mem.eql(u8, command.sequence, "help")) {
-        try help.cmd(ctx, help_fns, allocator, writer, exename, command.next, &argsIter);
+        try help.cmd(ctx, help_fns, allocator, writer, exename, command.next, argsIter);
         return;
     }
 
@@ -103,7 +133,7 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
             help_fns.get(command.sequence).?(writer, exename);
             return;
         } else if (parse_fns.get(command.sequence)) |parse_fn| {
-            try parse_fn(allocator, writer, command.next, &argsIter, exename);
+            try parse_fn(allocator, writer, command.next, argsIter, exename);
             return;
         } else if (next[0] == '-') {
             help_fns.get(command.sequence).?(writer, exename);
@@ -113,7 +143,7 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
             return;
         }
     } else if (parse_fns.get(command.sequence)) |parse_fn| {
-        try parse_fn(allocator, writer, null, &argsIter, exename);
+        try parse_fn(allocator, writer, null, argsIter, exename);
         return;
     } else {
         help_fns.get(command.sequence).?(writer, exename);
@@ -129,7 +159,7 @@ pub fn run(allocator: std.mem.Allocator, writer: anytype, comptime endpoints: []
 /// `sequence` must be freed, `next` does not
 fn parseCommandSequence(
     allocator: std.mem.Allocator,
-    argsIter: *std.process.ArgIterator,
+    argsIter: ArgIterator,
     comptime subcommands: type,
 ) !struct { sequence: []const u8, next: ?[]const u8 } {
     var buffer = std.ArrayList(u8).init(allocator);

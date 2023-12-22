@@ -11,15 +11,13 @@ pub fn main() !void {
     var buffered_writer = std.io.bufferedWriter(std.io.getStdOut().writer());
     defer buffered_writer.flush() catch {};
     var writer = buffered_writer.writer();
-
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
-
     writer.writeAll("\n") catch {};
     defer writer.writeAll("\n") catch {};
 
-    try parsley.run(allocator, &writer, &.{
+    try parsley.executeCommandLine(allocator, &writer, &.{
         Test,
         Sub1,
         Sub2,

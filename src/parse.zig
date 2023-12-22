@@ -19,13 +19,15 @@ const Positionals = common.Positionals;
 const Options = common.Options;
 const EmptyComptimeStringMap = common.EmptyComptimeStringMap;
 
+pub const ArgIterator = @import("any_iterator.zig").AnyIterator([]const u8);
+
 /// generate a std.ComptimeStringMap() mapping command sequences to parse functions
 pub fn FunctionMap(comptime ctx: Context) type {
     const ParseFn = *const fn (
         std.mem.Allocator,
         *ctx.WriterType,
         ?[]const u8,
-        *std.process.ArgIterator,
+        ArgIterator,
         []const u8,
     ) anyerror!void;
     const ParseFnKV = struct { []const u8, ParseFn };
@@ -48,7 +50,7 @@ fn generateParseFunction(
             allocator: std.mem.Allocator,
             writer: *ctx.WriterType,
             first_arg: ?[]const u8,
-            args: *std.process.ArgIterator,
+            args: ArgIterator,
             exename: []const u8,
         ) anyerror!void {
             var options = std.mem.zeroInit(Options(endpoint), .{});

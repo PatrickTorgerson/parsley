@@ -11,6 +11,8 @@ const Option = common.Option;
 const Context = common.Context;
 const Configuration = common.Configuration;
 
+pub const ArgIterator = @import("any_iterator.zig").AnyIterator([]const u8);
+
 pub const help_help_desc = "Show info on a specific command or topic";
 
 pub fn FunctionMap(comptime ctx: Context) type {
@@ -37,7 +39,7 @@ fn generateHelpFunction(
 ) HelpFn {
     return struct {
         pub fn help(writer: *ctx.WriterType, exename: []const u8) void {
-            if (endpoint != void) {
+            if (endpoint != void and !(command_sequence.len == 0 and exename.len == 0)) {
                 writeUsage(ctx, endpoint, exename, writer) catch {};
                 writer.writeByte('\n') catch {};
             }
@@ -45,9 +47,11 @@ fn generateHelpFunction(
             if (commands.len > 0) {
                 writer.print(" $ {s} {s} <COMMAND>\n", .{ exename, command_sequence }) catch {};
             }
+            writer.writeByte('\n') catch {};
 
             const description = ctx.full_descs.get(command_sequence) orelse "";
-            writer.print("\n{s}\n\n", .{description}) catch {};
+            if (description.len > 0)
+                writer.print("{s}\n\n", .{description}) catch {};
 
             if (commands.len > 0) {
                 writer.print(ctx.config.help_header_fmt, .{"COMMANDS"}) catch {};
@@ -78,7 +82,7 @@ pub fn cmd(
     writer: *ctx.WriterType,
     exename: []const u8,
     first_arg: ?[]const u8,
-    args: *std.process.ArgIterator,
+    args: ArgIterator,
 ) !void {
     if (first_arg == null) {
         help_fns.get("").?(writer, exename);
