@@ -2,7 +2,6 @@
 
 A command line parser written in zig.
 
-
 ```zig
 const std = @import("std");
 const parsley = @import("parsley");
@@ -13,7 +12,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     var allocator = gpa.allocator();
 
-    try parsley.executeCommandLine(allocator, &writer, &.{Endpoint1}, .{.command_descriptions = command_descriptions});
+    try parsley.executeCommandLine(void, undefined, allocator, &writer, &.{Endpoint1}, .{.command_descriptions = command_descriptions});
 }
 
 /// runnable commands are defined by structs called endpoints
@@ -25,7 +24,8 @@ const Endpoint1 = struct {
     pub const positionals = &[_]parsley.Positional{};
 
     pub fn run(
-        allocator: std.mem.Allocator
+        context: *void,
+        allocator: std.mem.Allocator,
         writer: *parsley.Writer,
         poss: parsley.Positionals(@This()),
         opts: parsley.Options(@This()),
@@ -52,6 +52,8 @@ const command_descriptions = &[_]parsley.CommandDescription{
     },
 };
 ```
+
+see /examples
 
 ## License
 ---
