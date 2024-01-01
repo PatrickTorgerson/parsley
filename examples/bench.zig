@@ -17,7 +17,7 @@ pub fn main() !void {
     writer.writeAll("\n") catch {};
     defer writer.writeAll("\n") catch {};
 
-    try parsley.executeCommandLine(allocator, &writer, &.{
+    try parsley.executeCommandLine(void, undefined, allocator, &writer, &.{
         Test,
         Sub1,
         Sub2,
@@ -112,6 +112,7 @@ pub const Test = struct {
     };
 
     pub fn run(
+        _: *void,
         _: std.mem.Allocator,
         writer: *parsley.BufferedWriter,
         poss: parsley.Positionals(@This()),
@@ -133,6 +134,7 @@ const Sub1 = struct {
     pub const positionals = &[_]parsley.Positional{};
 
     pub fn run(
+        _: *void,
         _: std.mem.Allocator,
         _: *parsley.BufferedWriter,
         _: parsley.Positionals(@This()),
@@ -148,6 +150,7 @@ const Sub2 = struct {
     pub const positionals = &[_]parsley.Positional{};
 
     pub fn run(
+        _: *void,
         _: std.mem.Allocator,
         _: *parsley.BufferedWriter,
         _: parsley.Positionals(@This()),

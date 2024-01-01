@@ -9,6 +9,7 @@ const trait = @import("trait.zig");
 
 pub const Context = struct {
     WriterType: type,
+    UserContextType: type,
     endpoints: []const type,
     config: Configuration,
     full_descs: type,

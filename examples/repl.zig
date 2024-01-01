@@ -7,6 +7,10 @@
 const std = @import("std");
 const parsley = @import("parsley");
 
+data: i32 = 0,
+
+const Context = @This();
+
 pub fn main() !void {
     var buffered_writer = std.io.bufferedWriter(std.io.getStdOut().writer());
     defer buffered_writer.flush() catch {};
@@ -25,6 +29,8 @@ pub fn main() !void {
     writer.writeAll("\n") catch {};
     defer writer.writeAll("\n") catch {};
 
+    var self: Context = .{};
+
     while (true) {
         writer.print("> ", .{}) catch {};
         buffered_writer.flush() catch {};
@@ -32,7 +38,7 @@ pub fn main() !void {
         try stdin.streamUntilDelimiter(input_buffer_writer, '\n', null);
         const input = std.mem.trim(u8, input_buffer.items, " \n\t\r");
         if (std.mem.eql(u8, input, "exit")) break;
-        try parsley.executeString(input, allocator, &writer, &.{
+        try parsley.executeString(Context, &self, input, allocator, &writer, &.{
             Root,
             Exit,
             Echo,
@@ -51,11 +57,14 @@ const Echo = struct {
     };
 
     pub fn run(
+        self: *Context,
         _: std.mem.Allocator,
         writer: *parsley.BufferedWriter,
         poss: parsley.Positionals(@This()),
         _: parsley.Options(@This()),
     ) anyerror!void {
+        writer.print("data: {d} : ", .{self.data}) catch {};
+        self.data +%= 1;
         for (poss.args.items) |arg| {
             writer.print("{s} ", .{arg}) catch {};
         }
@@ -74,6 +83,7 @@ const Sum = struct {
     };
 
     pub fn run(
+        _: *Context,
         _: std.mem.Allocator,
         writer: *parsley.BufferedWriter,
         poss: parsley.Positionals(@This()),
@@ -92,6 +102,7 @@ const Root = struct {
     pub const options = &[_]parsley.Option{};
     pub const positionals = &[_]parsley.Positional{};
     pub fn run(
+        _: *Context,
         _: std.mem.Allocator,
         _: *parsley.BufferedWriter,
         _: parsley.Positionals(@This()),
@@ -107,6 +118,7 @@ const Exit = struct {
     pub const options = &[_]parsley.Option{};
     pub const positionals = &[_]parsley.Positional{};
     pub fn run(
+        _: *Context,
         _: std.mem.Allocator,
         _: *parsley.BufferedWriter,
         _: parsley.Positionals(@This()),

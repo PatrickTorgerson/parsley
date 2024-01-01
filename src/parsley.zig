@@ -40,6 +40,8 @@ pub const BufferedWriter = std.io.BufferedWriter(4096, Writer).Writer;
 
 /// parse the commandline, calling the specified endpoint
 pub fn executeCommandLine(
+    comptime UserContext: type,
+    context: *UserContext,
     allocator: std.mem.Allocator,
     writer: anytype,
     comptime endpoints: []const type,
@@ -48,11 +50,13 @@ pub fn executeCommandLine(
     var argsIter = try std.process.argsWithAllocator(allocator);
     defer argsIter.deinit();
     const exename = std.fs.path.stem(argsIter.next().?);
-    return runImpl(allocator, writer, endpoints, config, exename, ArgIterator.init(&argsIter));
+    return runImpl(UserContext, context, allocator, writer, endpoints, config, exename, ArgIterator.init(&argsIter));
 }
 
 /// parse string as a commandline, calling the specified endpoint
 pub fn executeString(
+    comptime UserContext: type,
+    context: *UserContext,
     string: []const u8,
     allocator: std.mem.Allocator,
     writer: anytype,
@@ -61,10 +65,12 @@ pub fn executeString(
 ) !void {
     var argsIter = try std.process.ArgIteratorGeneral(.{}).init(allocator, string);
     defer argsIter.deinit();
-    return runImpl(allocator, writer, endpoints, config, "", ArgIterator.init(&argsIter));
+    return runImpl(UserContext, context, allocator, writer, endpoints, config, "", ArgIterator.init(&argsIter));
 }
 
 fn runImpl(
+    comptime UserContext: type,
+    context: *UserContext,
     allocator: std.mem.Allocator,
     writer: anytype,
     comptime endpoints: []const type,
@@ -73,7 +79,7 @@ fn runImpl(
     argsIter: ArgIterator,
 ) !void {
     const WriterType = comptime verify.Writer(@TypeOf(writer));
-    comptime verify.endpoints(endpoints, WriterType);
+    comptime verify.endpoints(endpoints, WriterType, UserContext);
     comptime verify.config(config);
 
     const max_commands = comptime determineMaxCommands(endpoints);
@@ -102,6 +108,7 @@ fn runImpl(
 
     const ctx: Context = .{
         .WriterType = WriterType,
+        .UserContextType = UserContext,
         .endpoints = endpoints,
         .config = config,
         .full_descs = full_descs,
@@ -133,7 +140,7 @@ fn runImpl(
             help_fns.get(command.sequence).?(writer, exename);
             return;
         } else if (parse_fns.get(command.sequence)) |parse_fn| {
-            try parse_fn(allocator, writer, command.next, argsIter, exename);
+            try parse_fn(context, allocator, writer, command.next, argsIter, exename);
             return;
         } else if (next[0] == '-') {
             help_fns.get(command.sequence).?(writer, exename);
@@ -143,7 +150,7 @@ fn runImpl(
             return;
         }
     } else if (parse_fns.get(command.sequence)) |parse_fn| {
-        try parse_fn(allocator, writer, null, argsIter, exename);
+        try parse_fn(context, allocator, writer, null, argsIter, exename);
         return;
     } else {
         help_fns.get(command.sequence).?(writer, exename);

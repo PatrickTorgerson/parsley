@@ -19,7 +19,7 @@ const Options = common.Options;
 const ArgumentTuple = common.ArgumentTuple;
 
 /// verify all endpoints are unique and valid
-pub fn endpoints(comptime endpoints_: []const type, comptime writer: type) void {
+pub fn endpoints(comptime endpoints_: []const type, comptime writer: type, comptime context: type) void {
     var seqs = ComptimeStringMapBuilder(endpoints_.len, []const u8){};
     inline for (endpoints_) |e| {
         const result = seqs.find(e.command_sequence);
@@ -30,7 +30,7 @@ pub fn endpoints(comptime endpoints_: []const type, comptime writer: type) void 
         } else {
             seqs.putFromResults(e.command_sequence, @typeName(e), result) catch {};
         }
-        comptime endpoint(e, writer);
+        comptime endpoint(e, writer, context);
     }
 }
 
@@ -63,14 +63,14 @@ pub fn Writer(comptime writer: type) type {
 
 /// verify the given type meets the constraints
 /// to be an endpoint struct, emmits a compile error otherwise
-pub fn endpoint(comptime endpoint_: type, comptime writer: type) void {
+pub fn endpoint(comptime endpoint_: type, comptime writer: type, comptime context: type) void {
     comptime {
         stringDeclaration(endpoint_, "command_sequence");
         stringDeclaration(endpoint_, "description_line");
         stringDeclaration(endpoint_, "description_full");
         arrayDeclaration(endpoint_, "options", Option);
         arrayDeclaration(endpoint_, "positionals", Positional);
-        runFunction(endpoint_, writer);
+        runFunction(endpoint_, writer, context);
         positionals(endpoint_);
         options(endpoint_);
         commandSequence(endpoint_, endpoint_.command_sequence);
@@ -188,7 +188,7 @@ pub fn commandSequenceChar(comptime endpoint_: type, comptime char: u8) void {
 
 /// verify endpoint's run function has the correct signiture
 /// `fn(writer,Positionals,Options) anytype!void`
-pub fn runFunction(comptime endpoint_: type, comptime writer: type) void {
+pub fn runFunction(comptime endpoint_: type, comptime writer: type, comptime context: type) void {
     if (!@hasDecl(endpoint_, "run"))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++
             "' missing public declaration 'run', should be " ++
@@ -198,20 +198,23 @@ pub fn runFunction(comptime endpoint_: type, comptime writer: type) void {
         if (info.Fn.return_type != anyerror!void)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++
                 "' declaration 'run' expected return value of 'anyerror!void' found '" ++ @typeName(info.Fn.return_type orelse noreturn) ++ "'");
-        if (info.Fn.params.len != 4)
-            @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected four parameters, " ++
-                "fn(std.mem.Allocator,*Writer,parsley.Positionals(positionals),parsley.Options(options))anyerror!void");
-        if (info.Fn.params[0].type != std.mem.Allocator)
+        if (info.Fn.params.len != 5)
+            @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected five parameters, " ++
+                "fn(*Context,Allocator,*Writer,Positionals,Options)anyerror!void");
+        if (info.Fn.params[0].type != *context)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected first parameter" ++
-                " of '" ++ @typeName(std.mem.Allocator) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[0].type orelse void));
-        if (info.Fn.params[1].type != *writer)
+                " of '" ++ @typeName(*context) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[0].type orelse void));
+        if (info.Fn.params[1].type != std.mem.Allocator)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected second parameter" ++
-                " of '" ++ @typeName(*writer) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[1].type orelse void));
-        if (info.Fn.params[2].type != Positionals(endpoint_))
+                " of '" ++ @typeName(std.mem.Allocator) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[0].type orelse void));
+        if (info.Fn.params[2].type != *writer)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected third parameter" ++
-                " of 'parsley.Positionals(positionals)'" ++ " found: " ++ @typeName(info.Fn.params[2].type orelse void));
-        if (info.Fn.params[3].type != Options(endpoint_))
+                " of '" ++ @typeName(*writer) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[1].type orelse void));
+        if (info.Fn.params[3].type != Positionals(endpoint_))
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected fourth parameter" ++
+                " of 'parsley.Positionals(positionals)'" ++ " found: " ++ @typeName(info.Fn.params[2].type orelse void));
+        if (info.Fn.params[4].type != Options(endpoint_))
+            @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected fith parameter" ++
                 " of 'parsley.Options(options)'" ++ " found: " ++ @typeName(info.Fn.params[3].type orelse void));
     } else @compileError("Endpoint '" ++ @typeName(endpoint_) ++
         ", expected 'run', to be function 'fn(std.mem.Allocator,*Writer,parsley.Positionals(positionals),parsley.Options(options))anyerror!void'");

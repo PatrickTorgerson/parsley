@@ -24,6 +24,7 @@ pub const ArgIterator = @import("any_iterator.zig").AnyIterator([]const u8);
 /// generate a std.ComptimeStringMap() mapping command sequences to parse functions
 pub fn FunctionMap(comptime ctx: Context) type {
     const ParseFn = *const fn (
+        *ctx.UserContextType,
         std.mem.Allocator,
         *ctx.WriterType,
         ?[]const u8,
@@ -47,6 +48,7 @@ fn generateParseFunction(
 ) ParseFn {
     return struct {
         pub fn parse(
+            context: *ctx.UserContextType,
             allocator: std.mem.Allocator,
             writer: *ctx.WriterType,
             first_arg: ?[]const u8,
@@ -185,7 +187,7 @@ fn generateParseFunction(
                 return;
             }
 
-            try endpoint.run(allocator, writer, positionals, options);
+            try endpoint.run(context, allocator, writer, positionals, options);
         }
     }.parse;
 }
