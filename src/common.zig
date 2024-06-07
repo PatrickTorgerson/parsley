@@ -62,7 +62,7 @@ pub const Option = struct {
     // required name of the option
     /// must follow the regex `[a-zA-Z_-]+`
     /// do not include the dash prefix
-    name: []const u8,
+    name: [:0]const u8,
     /// optional short alias
     name_short: ?u8 = null,
     /// a description of the option, will appear
@@ -74,7 +74,7 @@ pub const Option = struct {
 
 pub const Positional = struct {
     /// name
-    []const u8,
+    [:0]const u8,
     /// argument
     Argument,
 };
@@ -192,7 +192,7 @@ pub fn Positionals(comptime endpoint: type) type {
     return @Type(.{
         .Struct = .{
             .is_tuple = false,
-            .layout = .Auto,
+            .layout = .auto,
             .decls = &.{},
             .fields = &fields,
         },
@@ -226,7 +226,7 @@ pub fn Options(comptime endpoint: type) type {
     return @Type(.{
         .Struct = .{
             .is_tuple = false,
-            .layout = .Auto,
+            .layout = .auto,
             .decls = &.{},
             .fields = &fields,
         },
@@ -287,4 +287,16 @@ pub fn EmptyComptimeStringMap(comptime V: type) type {
             return null;
         }
     };
+}
+
+pub fn makeBuffer(
+    comptime buffer_name: []const u8,
+    comptime T: type,
+    comptime size: usize,
+) []T {
+    const data = struct {
+        const name = buffer_name;
+        var buffer: [size]T = undefined;
+    };
+    return data.buffer[0..];
 }

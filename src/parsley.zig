@@ -39,6 +39,13 @@ pub const Writer = @TypeOf(std.io.getStdOut().writer());
 pub const BufferedWriter = std.io.BufferedWriter(4096, Writer).Writer;
 
 /// parse the commandline, calling the specified endpoint
+///
+/// * `UserContext` : user context data type to forward to endpoints
+/// * `context` : user context data to forward to endpoints
+/// * `allocator` : allocator used for allocations, forwarded to endpoints
+/// * `writer` : writer used for output, forwarded to endpoints
+/// * `endpoints` : list of structs defining endpoints
+/// * `config` : configuration settings, see `parsley.Configuration`
 pub fn executeCommandLine(
     comptime UserContext: type,
     context: *UserContext,
@@ -54,6 +61,14 @@ pub fn executeCommandLine(
 }
 
 /// parse string as a commandline, calling the specified endpoint
+///
+/// * `UserContext` : user context data type to forward to endpoints
+/// * `context` : user context data to forward to endpoints
+/// * `string` : string to parse as commandline
+/// * `allocator` : allocator used for allocations, forwarded to endpoints
+/// * `writer` : writer used for output, forwarded to endpoints
+/// * `endpoints` : list of structs defining endpoints
+/// * `config` : configuration settings, see `parsley.Configuration`
 pub fn executeString(
     comptime UserContext: type,
     context: *UserContext,
@@ -84,19 +99,10 @@ fn runImpl(
 
     const max_commands = comptime determineMaxCommands(endpoints);
     const max_subcommands = endpoints.len + 1;
-    const subcommand_data_buffer = comptime blk: {
-        var command_counts = commandCounts(endpoints, max_commands, max_subcommands) catch |err| {
-            @compileError("Could not generate command count data: " ++ @errorName(err));
-        };
-        var buffer: SubcommandDataBuffer(&command_counts) = undefined;
-        inline for (command_counts.kvSlice()) |*kv| {
-            inline for (kv[1].kvSlice(), 0..) |k, i| {
-                @field(buffer, kv[0])[i] = k[0];
-            }
-        }
-        break :blk buffer;
+    const command_counts = comptime commandCounts(endpoints, max_commands, max_subcommands) catch |err| {
+        @compileError("Could not generate command count data: " ++ @errorName(err));
     };
-    const subcommands = comptime SubcommandMap(&subcommand_data_buffer) catch |err| {
+    const subcommands = comptime SubcommandMap(command_counts) catch |err| {
         @compileError("Could not generate subcommand map: " ++ @errorName(err));
     };
     const line_descs = comptime LineDescMap(endpoints, config) catch |err| {
@@ -192,11 +198,19 @@ fn parseCommandSequence(
 
 /// generate a std.ComptimeStringMap that maps commands to
 /// a slice of sub commands
-fn SubcommandMap(comptime data_buffer: anytype) !type {
-    const fields = std.meta.fields(@TypeOf(data_buffer.*));
-    var builder = ComptimeStringMapBuilder(fields.len, []const []const u8){};
-    inline for (fields) |f| {
-        try builder.put(f.name, &@field(data_buffer, f.name));
+fn SubcommandMap(comptime command_counts: anytype) !type {
+    comptime var builder = ComptimeStringMapBuilder(command_counts.len, []const []const u8){};
+    inline for (command_counts.kvSliceConst()) |kv| {
+        const data = struct {
+            const buffer: [kv[1].len][]const u8 = blk: {
+                var buf: [kv[1].len][]const u8 = undefined;
+                for (&buf, kv[1].kvSliceConst()) |*b, s| {
+                    b.* = s[0];
+                }
+                break :blk buf;
+            };
+        };
+        try builder.put(kv[0], data.buffer[0..]);
     }
     return builder.ComptimeStringMap();
 }
@@ -259,7 +273,7 @@ fn commandCounts(
         try subcounts.getFromResult(.{ .found = true, .index = root_idx.index }).?.put("help", {});
         try subcounts.put("help", ComptimeStringMapBuilder(max_subcommands, void){});
 
-        inline for (endpoints) |e| {
+        for (endpoints) |e| {
             if (e.command_sequence.len == 0)
                 continue;
             var i: usize = 0;
@@ -289,32 +303,6 @@ fn commandCounts(
         }
         return subcounts;
     }
-}
-
-/// generate a struct with fileds for every command, type is an
-/// array of slices. `command_counts` is a std.ComptimeStringMap
-/// mapping commands to the number of subcommands
-fn SubcommandDataBuffer(comptime command_counts: anytype) type {
-    var fields: [command_counts.len]std.builtin.Type.StructField = undefined;
-    inline for (command_counts.kvSlice(), 0..) |kv, i| {
-        @setEvalBranchQuota(2_000);
-        const @"type": type = [kv[1].len][]const u8;
-        fields[i] = .{
-            .name = kv[0],
-            .type = @"type",
-            .default_value = null,
-            .is_comptime = false,
-            .alignment = if (@sizeOf(@"type") > 0) @alignOf(@"type") else 0,
-        };
-    }
-    return @Type(.{
-        .Struct = .{
-            .is_tuple = false,
-            .layout = .Auto,
-            .decls = &.{},
-            .fields = &fields,
-        },
-    });
 }
 
 fn determineMaxCommands(comptime endpoints: []const type) usize {

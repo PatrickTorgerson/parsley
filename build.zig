@@ -14,9 +14,9 @@ const examples = [_]struct { name: []const u8, source: []const u8 }{
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
     const parsley = b.addModule("parsley", .{
-        .source_file = std.Build.FileSource.relative("./src/parsley.zig"),
-        .dependencies = &.{},
+        .root_source_file = b.path("./src/parsley.zig"),
     });
 
     // -- examples
@@ -25,11 +25,11 @@ pub fn build(b: *std.Build) void {
     inline for (examples) |example| {
         const exe = b.addExecutable(.{
             .name = example.name,
-            .root_source_file = std.Build.FileSource.relative(example.source),
+            .root_source_file = b.path(example.source),
             .target = target,
             .optimize = optimize,
         });
-        exe.addModule("parsley", parsley);
+        exe.root_module.addImport("parsley", parsley);
         b.installArtifact(exe);
         const run_example_cmd = b.addRunArtifact(exe);
         run_example_cmd.step.dependOn(b.getInstallStep());
@@ -43,7 +43,7 @@ pub fn build(b: *std.Build) void {
 
     // -- testing
     const unit_tests = b.addTest(.{
-        .root_source_file = std.Build.FileSource.relative("./src/parsley.zig"),
+        .root_source_file = b.path("./src/parsley.zig"),
         .target = target,
     });
     const run_unit_tests = b.addRunArtifact(unit_tests);

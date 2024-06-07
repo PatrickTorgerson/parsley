@@ -127,10 +127,10 @@ fn ValueIdentifierMap(comptime T: type) type {
         const KV = struct { []const u8, usize };
         var mappings: [std.meta.fields(T).len]KV = undefined;
         var i: usize = 0;
-        inline for (std.meta.fields(T), 0..) |field, fi| {
+        for (std.meta.fields(T), 0..) |field, fi| {
             mappings[fi] = .{ field.name, i };
             if (trait.is(.Optional)(field.type) and trait.isTuple(std.meta.Child(field.type))) {
-                inline for (std.meta.fields(std.meta.Child(field.type))) |tuple_field| {
+                for (std.meta.fields(std.meta.Child(field.type))) |tuple_field| {
                     idbuffer[i] = field.name ++ tuple_field.name;
                     i += 1;
                 }
@@ -161,7 +161,7 @@ fn ValueIdentifierMap(comptime T: type) type {
 fn countValues(comptime T: type) usize {
     return comptime blk: {
         var size: usize = 0;
-        inline for (std.meta.fields(T)) |field| {
+        for (std.meta.fields(T)) |field| {
             if (trait.is(.Optional)(field.type) and trait.isTuple(std.meta.Child(field.type)))
                 size += std.meta.fields(std.meta.Child(field.type)).len
             else

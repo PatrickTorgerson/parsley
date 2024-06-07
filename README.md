@@ -55,6 +55,48 @@ const command_descriptions = &[_]parsley.CommandDescription{
 
 see /examples
 
+## usage
+
+1. Add `parsley` as a dependency in your `build.zig.zon`.
+
+    <details>
+
+    <summary><code>build.zig.zon</code> example</summary>
+
+    ```zig
+    .{
+        .name = "<name_of_your_package>",
+        .version = "<version_of_your_package>",
+        .dependencies = .{
+            .parsley = .{
+                .url = "https://github.com/PatrickTorgerson/parsley/archive/<git_tag_or_commit_hash>.tar.gz",
+                .hash = "<package_hash>",
+            },
+        },
+    }
+    ```
+
+    Set `<package_hash>` to `12200000000000000000000000000000000000000000000000000000000000000000`, and Zig will provide the correct found value in an error message.
+
+    </details>
+
+2. Add `parsley` as a module in your `build.zig`.
+
+    <details>
+
+    <summary><code>build.zig</code> example</summary>
+
+    ```zig
+    const parsley = b.lazyDependency("parsley", .{
+        .optimize = optimize,
+        .target = target,
+    }).module("parsley");
+    //...
+    exe.root_module.addImport("parsley", parsley);
+    ```
+
+    </details>
+
 ## License
 ---
 > MIT License

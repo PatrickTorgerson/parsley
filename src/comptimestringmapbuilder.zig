@@ -81,6 +81,10 @@ pub fn ComptimeStringMapBuilder(comptime capacity: usize, comptime V: type) type
             return this.value_buffer[0..this.len];
         }
 
+        pub fn kvSliceConst(comptime this: @This()) []const KV {
+            return this.value_buffer[0..this.len];
+        }
+
         pub fn ComptimeStringMap(comptime this: *@This()) type {
             return if (this.len > 0)
                 std.ComptimeStringMap(V, this.kvSlice())
