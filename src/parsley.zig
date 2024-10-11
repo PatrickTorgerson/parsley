@@ -196,7 +196,7 @@ fn parseCommandSequence(
     };
 }
 
-/// generate a std.ComptimeStringMap that maps commands to
+/// generate a ComptimeStringMap that maps commands to
 /// a slice of sub commands
 fn SubcommandMap(comptime command_counts: anytype) !type {
     comptime var builder = ComptimeStringMapBuilder(command_counts.len, []const []const u8){};
@@ -215,12 +215,12 @@ fn SubcommandMap(comptime command_counts: anytype) !type {
     return builder.ComptimeStringMap();
 }
 
-/// return a std.ComptimeStringMap([]const u8,...) mapping commands to line descriptions
+/// return a ComptimeStringMap([]const u8,...) mapping commands to line descriptions
 fn LineDescMap(comptime endpoints: []const type, comptime config: Configuration) !type {
     return DescMapImpl(endpoints, config, "description_line", "line");
 }
 
-/// return a std.ComptimeStringMap([]const u8,...) mapping commands to full descriptions
+/// return a ComptimeStringMap([]const u8,...) mapping commands to full descriptions
 fn FullDescMap(comptime endpoints: []const type, comptime config: Configuration) !type {
     return DescMapImpl(endpoints, config, "description_full", "full");
 }
@@ -258,7 +258,7 @@ fn DescMapImpl(
     return builder.ComptimeStringMap();
 }
 
-/// return a std.ComptimeStringMap() mapping commands to
+/// return a ComptimeStringMap() mapping commands to
 /// their number of sub commands
 fn commandCounts(
     comptime endpoints: []const type,

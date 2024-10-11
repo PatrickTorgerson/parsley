@@ -7,6 +7,8 @@
 const std = @import("std");
 const trait = @import("trait.zig");
 
+pub const ComptimeStringMap = @import("comptime_string_map.zig").ComptimeStringMap;
+
 pub const Context = struct {
     WriterType: type,
     UserContextType: type,

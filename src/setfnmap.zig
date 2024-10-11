@@ -70,7 +70,7 @@ pub fn SetFnMap(comptime T: type) type {
             i += 1;
         }
     }
-    const fns = std.ComptimeStringMap(SetFn, set_fn_arr);
+    const fns = common.ComptimeStringMap(SetFn, set_fn_arr);
     const ids = ValueIdentifierMap(T);
     return struct {
         pub fn get(field: []const u8, idx: usize) ?SetFn {
@@ -142,7 +142,7 @@ fn ValueIdentifierMap(comptime T: type) type {
         break :blk .{
             .idbuffer = idbuffer,
             .mappings = if (mappings.len > 0)
-                std.ComptimeStringMap(usize, mappings)
+                common.ComptimeStringMap(usize, mappings)
             else
                 EmptyComptimeStringMap(usize),
         };

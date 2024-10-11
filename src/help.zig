@@ -28,7 +28,7 @@ pub fn FunctionMap(comptime ctx: Context) type {
             kv.key,
         );
     }
-    return std.ComptimeStringMap(HelpFn, help_fn_arr);
+    return common.ComptimeStringMap(HelpFn, help_fn_arr);
 }
 
 fn generateHelpFunction(

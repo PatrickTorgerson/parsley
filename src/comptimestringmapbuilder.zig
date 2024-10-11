@@ -87,7 +87,7 @@ pub fn ComptimeStringMapBuilder(comptime capacity: usize, comptime V: type) type
 
         pub fn ComptimeStringMap(comptime this: *@This()) type {
             return if (this.len > 0)
-                std.ComptimeStringMap(V, this.kvSlice())
+                common.ComptimeStringMap(V, this.kvSlice())
             else
                 EmptyComptimeStringMap(V);
         }

@@ -21,7 +21,7 @@ const EmptyComptimeStringMap = common.EmptyComptimeStringMap;
 
 pub const ArgIterator = @import("any_iterator.zig").AnyIterator([]const u8);
 
-/// generate a std.ComptimeStringMap() mapping command sequences to parse functions
+/// generate a ComptimeStringMap() mapping command sequences to parse functions
 pub fn FunctionMap(comptime ctx: Context) type {
     const ParseFn = *const fn (
         *ctx.UserContextType,
@@ -37,7 +37,7 @@ pub fn FunctionMap(comptime ctx: Context) type {
         parse_fn_arr[i][0] = endpoint.command_sequence;
         parse_fn_arr[i][1] = generateParseFunction(ctx, ParseFn, endpoint);
     }
-    return std.ComptimeStringMap(ParseFn, parse_fn_arr);
+    return common.ComptimeStringMap(ParseFn, parse_fn_arr);
 }
 
 /// generate a parse function for the given endpoint
@@ -209,7 +209,7 @@ fn lookupOption(comptime options: []const Option, opt: []const u8) ?Option {
     return null;
 }
 
-/// generate a std.ComptimeStringMap() to map field names to init fns
+/// generate a ComptimeStringMap() to map field names to init fns
 fn InitFns(comptime T: type) type {
     const InitFn = *const fn (*T) void;
     const size = std.meta.fields(T).len;
@@ -239,7 +239,7 @@ fn InitFns(comptime T: type) type {
         }
     }
     if (i == 0) return EmptyComptimeStringMap(InitFn);
-    return std.ComptimeStringMap(InitFn, init_fn_arr[0..i]);
+    return common.ComptimeStringMap(InitFn, init_fn_arr[0..i]);
 }
 
 /// call deinit() on all fields that define deinit()
