@@ -227,7 +227,7 @@ fn InitFns(comptime T: type) type {
                 }
             }.init;
             i += 1;
-        } else if (comptime trait.is(.Optional)(field.type) and trait.isTuple(std.meta.Child(field.type))) {
+        } else if (comptime trait.is(.optional)(field.type) and trait.isTuple(std.meta.Child(field.type))) {
             init_fn_arr[i][0] = field.name;
             init_fn_arr[i][1] = struct {
                 pub fn init(opts: *T) void {
@@ -255,8 +255,8 @@ fn deinitOptions(comptime OptionsType: type, options: *OptionsType, ally: std.me
 
 /// determine if `T` is an optional array list
 fn isOptionalArrayList(comptime T: type) bool {
-    return trait.is(.Optional)(T) and
-        trait.is(.Struct)(std.meta.Child(T)) and
+    return trait.is(.optional)(T) and
+        trait.is(.@"struct")(std.meta.Child(T)) and
         trait.hasFields(std.meta.Child(T), .{ "items", "capacity" }) and
         trait.hasFunctions(std.meta.Child(T), .{ "initCapacity", "deinit", "append" });
 }

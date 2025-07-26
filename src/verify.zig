@@ -44,7 +44,7 @@ pub fn config(comptime config_: anytype) void {
 /// return the writer type
 pub fn Writer(comptime writer: type) type {
     comptime {
-        if (!trait.isPtrTo(.Struct)(writer)) {
+        if (!trait.isPtrTo(.@"struct")(writer)) {
             @compileError("expected pointer to struct, found " ++ @typeName(writer));
         }
         const WriterTy = std.meta.Child(writer);
@@ -195,25 +195,25 @@ pub fn runFunction(comptime endpoint_: type, comptime writer: type, comptime con
             "'fn(std.mem.Allocator,*Writer,parsley.Positionals(positionals),parsley.Options(options))anyerror!void'")
     else if (trait.hasFn("run")(endpoint_)) {
         const info = @typeInfo(@TypeOf(endpoint_.run));
-        if (info.Fn.return_type != anyerror!void)
+        if (info.@"fn".return_type != anyerror!void)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++
                 "' declaration 'run' expected return value of 'anyerror!void' found '" ++ @typeName(info.Fn.return_type orelse noreturn) ++ "'");
-        if (info.Fn.params.len != 5)
+        if (info.@"fn".params.len != 5)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected five parameters, " ++
                 "fn(*Context,Allocator,*Writer,Positionals,Options)anyerror!void");
-        if (info.Fn.params[0].type != *context)
+        if (info.@"fn".params[0].type != *context)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected first parameter" ++
                 " of '" ++ @typeName(*context) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[0].type orelse void));
-        if (info.Fn.params[1].type != std.mem.Allocator)
+        if (info.@"fn".params[1].type != std.mem.Allocator)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected second parameter" ++
                 " of '" ++ @typeName(std.mem.Allocator) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[0].type orelse void));
-        if (info.Fn.params[2].type != *writer)
+        if (info.@"fn".params[2].type != *writer)
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected third parameter" ++
                 " of '" ++ @typeName(*writer) ++ "'" ++ " found: " ++ @typeName(info.Fn.params[1].type orelse void));
-        if (info.Fn.params[3].type != Positionals(endpoint_))
+        if (info.@"fn".params[3].type != Positionals(endpoint_))
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected fourth parameter" ++
                 " of 'parsley.Positionals(positionals)'" ++ " found: " ++ @typeName(info.Fn.params[2].type orelse void));
-        if (info.Fn.params[4].type != Options(endpoint_))
+        if (info.@"fn".params[4].type != Options(endpoint_))
             @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' declaration 'run' expected fith parameter" ++
                 " of 'parsley.Options(options)'" ++ " found: " ++ @typeName(info.Fn.params[3].type orelse void));
     } else @compileError("Endpoint '" ++ @typeName(endpoint_) ++
@@ -224,7 +224,7 @@ pub fn runFunction(comptime endpoint_: type, comptime writer: type, comptime con
 /// with the given name
 pub fn stringDeclaration(comptime endpoint_: type, comptime name: []const u8) void {
     const string_slice: []const u8 = "";
-    if (!trait.is(.Struct)(endpoint_))
+    if (!trait.is(.@"struct")(endpoint_))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' expected to be a struct type");
     if (!@hasDecl(endpoint_, name))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++
@@ -240,12 +240,12 @@ pub fn stringDeclaration(comptime endpoint_: type, comptime name: []const u8) vo
 pub fn arrayDeclaration(comptime endpoint_: type, comptime name: []const u8, comptime child_type: type) void {
     const child_slice: []const child_type = &.{};
     _ = child_slice;
-    if (!trait.is(.Struct)(endpoint_))
+    if (!trait.is(.@"struct")(endpoint_))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++ "' expected to be a struct type");
     if (!@hasDecl(endpoint_, name))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++
             "' missing public declaration '" ++ name ++ ": []const " ++ @typeName(child_type) ++ "'")
-    else if (!trait.isPtrTo(.Array)(@TypeOf(@field(endpoint_, name))))
+    else if (!trait.isPtrTo(.array)(@TypeOf(@field(endpoint_, name))))
         @compileError("Endpoint '" ++ @typeName(endpoint_) ++
             "' incorrect type; expected '[]const " ++ @typeName(child_type) ++
             "' but found '" ++ @typeName(@TypeOf(@field(endpoint_, name))))

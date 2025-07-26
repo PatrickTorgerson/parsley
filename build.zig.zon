@@ -1,6 +1,8 @@
 .{
-    .name = "parsley",
+    .name = .parsley,
+    .fingerprint = 0x38aa0b4944c9feab,
     .version = "1.3.0",
+    .minimum_zig_version = "0.14.1",
     .dependencies = .{},
     .paths = .{
         "build.zig",

@@ -186,13 +186,13 @@ pub fn Positionals(comptime endpoint: type) type {
         fields[i] = .{
             .name = positional[0],
             .type = @"type",
-            .default_value = null,
+            .default_value_ptr = null,
             .is_comptime = false,
             .alignment = if (@sizeOf(@"type") > 0) @alignOf(@"type") else 0,
         };
     }
     return @Type(.{
-        .Struct = .{
+        .@"struct" = .{
             .is_tuple = false,
             .layout = .auto,
             .decls = &.{},
@@ -220,13 +220,13 @@ pub fn Options(comptime endpoint: type) type {
         fields[i] = .{
             .name = opt.name,
             .type = @"type",
-            .default_value = null,
+            .default_value_ptr = null,
             .is_comptime = false,
             .alignment = if (@sizeOf(@"type") > 0) @alignOf(@"type") else 0,
         };
     }
     return @Type(.{
-        .Struct = .{
+        .@"struct" = .{
             .is_tuple = false,
             .layout = .auto,
             .decls = &.{},
@@ -272,11 +272,11 @@ pub fn ArgumentTuple(comptime arguments: []const Argument) type {
 }
 
 pub fn isSingleOptionalStruct(comptime T: type) bool {
-    return trait.is(.Struct)(T) and
+    return trait.is(.@"struct")(T) and
         std.meta.fields(T).len == 2 and
         trait.hasFields(T, .{ "present", "value" }) and
         std.meta.fieldInfo(T, std.enums.nameCast(std.meta.FieldEnum(T), "present")).type == bool and
-        trait.is(.Optional)(std.meta.fieldInfo(T, std.enums.nameCast(std.meta.FieldEnum(T), "value")).type);
+        trait.is(.optional)(std.meta.fieldInfo(T, std.enums.nameCast(std.meta.FieldEnum(T), "value")).type);
 }
 
 pub fn EmptyComptimeStringMap(comptime V: type) type {

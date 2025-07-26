@@ -44,7 +44,7 @@ pub fn SetFnMap(comptime T: type) type {
 
     var i: usize = 0;
     inline for (std.meta.fields(T)) |field| {
-        if (trait.is(.Optional)(field.type) and trait.isTuple(std.meta.Child(field.type))) {
+        if (trait.is(.optional)(field.type) and trait.isTuple(std.meta.Child(field.type))) {
             inline for (std.meta.fields(std.meta.Child(field.type)), 0..) |tuple_field, tuple_index| {
                 set_fn_arr[i][0] = field.name ++ tuple_field.name;
                 set_fn_arr[i][1] = generateSetFunction(
@@ -97,15 +97,15 @@ fn generateSetFunction(
                     .value = if (value.len == 0) null else try parseValue(std.meta.Child(ValueType), value),
                 };
             } else {
-                const T = comptime if (trait.is(.Optional)(field_type))
+                const T = comptime if (trait.is(.optional)(field_type))
                     std.meta.Child(field_type)
                 else
                     field_type;
 
                 if (comptime single) {
-                    if (comptime trait.is(.Struct)(T)) {
+                    if (comptime trait.is(.@"struct")(T)) {
                         // ArrayList
-                        if (comptime trait.is(.Optional)(field_type))
+                        if (comptime trait.is(.optional)(field_type))
                             try @field(p, field_name).?.append(ally, try parseValue(std.meta.Child(T.Slice), value))
                         else
                             try @field(p, field_name).append(ally, try parseValue(std.meta.Child(T.Slice), value));
@@ -129,7 +129,7 @@ fn ValueIdentifierMap(comptime T: type) type {
         var i: usize = 0;
         for (std.meta.fields(T), 0..) |field, fi| {
             mappings[fi] = .{ field.name, i };
-            if (trait.is(.Optional)(field.type) and trait.isTuple(std.meta.Child(field.type))) {
+            if (trait.is(.optional)(field.type) and trait.isTuple(std.meta.Child(field.type))) {
                 for (std.meta.fields(std.meta.Child(field.type))) |tuple_field| {
                     idbuffer[i] = field.name ++ tuple_field.name;
                     i += 1;
@@ -162,7 +162,7 @@ fn countValues(comptime T: type) usize {
     return comptime blk: {
         var size: usize = 0;
         for (std.meta.fields(T)) |field| {
-            if (trait.is(.Optional)(field.type) and trait.isTuple(std.meta.Child(field.type)))
+            if (trait.is(.optional)(field.type) and trait.isTuple(std.meta.Child(field.type)))
                 size += std.meta.fields(std.meta.Child(field.type)).len
             else
                 size += 1;

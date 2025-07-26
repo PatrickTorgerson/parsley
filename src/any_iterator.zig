@@ -35,7 +35,7 @@ pub fn AnyIterator(comptime T: type) type {
         /// expected signiture of nextfn `fn(self: @TypeOf(pointer)) ?T`
         pub fn init(pointer: anytype) @This() {
             const ptr_info = @typeInfo(@TypeOf(pointer));
-            const Child = ptr_info.Pointer.child;
+            const Child = ptr_info.pointer.child;
             return @This().initWithNextFn(pointer, @field(Child, "next"));
         }
 
